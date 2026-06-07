@@ -1,0 +1,13 @@
+# Keep real participant lists and draw results out of Git.
+*.csv
+*.tsv
+participants*
+*participants*
+raffle-winners-*
+*winners*
+actual-*
+real-*
+
+# Local OS/editor noise.
+.DS_Store
+Thumbs.db

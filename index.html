@@ -1,0 +1,1794 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Raffle Draw</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101112;
+      --panel: #191a1d;
+      --panel-2: #202226;
+      --ink: #fffaf0;
+      --muted: #aeb3ad;
+      --line: #32363b;
+      --accent: #ffd24a;
+      --accent-2: #36d4ac;
+      --danger: #ff7373;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      overflow: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(260px, 330px) minmax(0, 1fr) minmax(260px, 340px);
+      height: 100%;
+      min-height: 100%;
+    }
+
+    .setup,
+    .history {
+      background: var(--panel);
+      border-color: var(--line);
+      border-style: solid;
+      padding: 22px;
+      overflow: auto;
+    }
+
+    .setup {
+      border-width: 0 1px 0 0;
+    }
+
+    .history {
+      border-width: 0 0 0 1px;
+    }
+
+    .brand {
+      margin: 0 0 20px;
+    }
+
+    .brand-title {
+      display: block;
+      font-size: 26px;
+      font-weight: 850;
+      letter-spacing: 0;
+      line-height: 1.05;
+    }
+
+    .brand-subtitle {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .field-label {
+      display: block;
+      margin: 18px 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .title-input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #111214;
+      color: var(--ink);
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    .title-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255, 210, 74, 0.18);
+    }
+
+    .file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .drop-zone {
+      display: grid;
+      min-height: 118px;
+      place-items: center;
+      border: 1px dashed #5f6668;
+      border-radius: 8px;
+      background: #131517;
+      color: var(--ink);
+      padding: 18px;
+      text-align: center;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .drop-zone strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-size: 18px;
+    }
+
+    .drop-zone span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .drop-zone.is-dragging {
+      border-color: var(--accent-2);
+      background: rgba(54, 212, 172, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .stat {
+      min-height: 76px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 12px;
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      display: block;
+      margin-top: 4px;
+      font-size: 28px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .action-button,
+    .big-draw {
+      min-height: 46px;
+      border-radius: 8px;
+      background: #2a2d31;
+      color: var(--ink);
+      font-weight: 800;
+      box-shadow: none;
+    }
+
+    .action-button:hover:not(:disabled),
+    .big-draw:hover:not(:disabled) {
+      filter: brightness(1.08);
+    }
+
+    .action-button.primary,
+    .big-draw {
+      background: var(--accent);
+      color: #171511;
+    }
+
+    .action-button.danger {
+      background: #3a2427;
+      color: #ffd7d7;
+    }
+
+    .draw-count-control {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      gap: 8px;
+      margin: 8px 0 18px;
+    }
+
+    .step-button,
+    .draw-count-input {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #141619;
+      color: var(--ink);
+      font-weight: 850;
+    }
+
+    .step-button {
+      color: var(--accent);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .draw-count-input {
+      width: 100%;
+      text-align: center;
+      outline: none;
+      font-size: 18px;
+    }
+
+    .draw-count-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255, 210, 74, 0.18);
+    }
+
+    .hint {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      min-width: 0;
+      padding: 26px;
+      background:
+        linear-gradient(180deg, rgba(255, 210, 74, 0.05), transparent 34%),
+        var(--bg);
+    }
+
+    .stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .event-title {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: clamp(18px, 2vw, 34px);
+      font-weight: 850;
+      letter-spacing: 0;
+      line-height: 1.18;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status {
+      flex: 0 0 auto;
+      max-width: 46%;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #17191c;
+      color: var(--accent-2);
+      padding: 9px 14px;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .winner-board {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      min-height: 0;
+      overflow: auto;
+      padding: 26px 0;
+      text-align: center;
+    }
+
+    .winner-number {
+      color: var(--accent);
+      font-size: clamp(34px, 5.5vw, 96px);
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: var(--shadow);
+    }
+
+    .winner-name {
+      max-width: 100%;
+      margin-top: 16px;
+      font-size: clamp(80px, 12vw, 190px);
+      font-weight: 950;
+      letter-spacing: 0;
+      line-height: 1.03;
+      overflow-wrap: anywhere;
+      text-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+      word-break: keep-all;
+    }
+
+    .winner-korean {
+      max-width: 100%;
+      margin-top: 16px;
+      color: var(--accent);
+      font-size: clamp(28px, 4.2vw, 72px);
+      font-weight: 850;
+      line-height: 1.12;
+      overflow-wrap: anywhere;
+      word-break: keep-all;
+    }
+
+    .winner-meta {
+      max-width: min(760px, 100%);
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: clamp(18px, 2.2vw, 30px);
+      font-weight: 750;
+      line-height: 1.3;
+    }
+
+    .winner-board.is-spinning .winner-number,
+    .winner-board.is-spinning .winner-name,
+    .winner-board.is-spinning .winner-korean {
+      color: #ffffff;
+      transform: scale(1.015);
+      transition: transform 70ms ease;
+    }
+
+    .winner-set {
+      display: grid;
+      width: min(1180px, 100%);
+      gap: 18px;
+    }
+
+    .winner-set.is-batch {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      align-items: stretch;
+    }
+
+    .winner-set.is-large-batch {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+
+    .winner-card {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      min-height: 210px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(20, 22, 25, 0.72);
+      padding: 18px;
+      text-align: center;
+    }
+
+    .winner-set.is-single .winner-card {
+      border: 0;
+      background: transparent;
+      min-height: 0;
+      padding: 0;
+    }
+
+    .winner-set.is-batch .winner-number {
+      font-size: clamp(22px, 2.6vw, 42px);
+    }
+
+    .winner-set.is-batch .winner-name {
+      margin-top: 10px;
+      font-size: clamp(34px, 4.1vw, 70px);
+    }
+
+    .winner-set.is-batch .winner-korean {
+      margin-top: 10px;
+      font-size: clamp(22px, 2.8vw, 40px);
+    }
+
+    .winner-set.is-batch .winner-meta {
+      margin-top: 12px;
+      font-size: clamp(14px, 1.4vw, 20px);
+    }
+
+    .winner-set.is-large-batch .winner-card {
+      min-height: 150px;
+      padding: 12px;
+    }
+
+    .winner-set.is-large-batch .winner-number {
+      font-size: clamp(16px, 1.8vw, 28px);
+    }
+
+    .winner-set.is-large-batch .winner-name {
+      font-size: clamp(24px, 2.5vw, 42px);
+    }
+
+    .winner-set.is-large-batch .winner-korean {
+      font-size: clamp(16px, 1.8vw, 28px);
+    }
+
+    .winner-set.is-large-batch .winner-meta {
+      font-size: clamp(12px, 1.2vw, 16px);
+    }
+
+    .absent-current-button {
+      min-height: 36px;
+      margin-top: 16px;
+      border-radius: 8px;
+      background: #3a2427;
+      color: #ffd7d7;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .big-draw {
+      width: min(760px, 100%);
+      min-height: 72px;
+      justify-self: center;
+      font-size: clamp(22px, 3vw, 40px);
+      letter-spacing: 0;
+    }
+
+    .history-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .history-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .history-count {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .absent-section {
+      margin-top: 26px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+    }
+
+    .history-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #141619;
+      padding: 10px 12px;
+    }
+
+    .history-order {
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .history-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .history-extra {
+      grid-column: 2;
+      min-width: 0;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 12px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empty-history {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1080px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100%;
+      }
+
+      .setup,
+      .history {
+        border-width: 0 0 1px 0;
+      }
+
+      .stage {
+        min-height: 74vh;
+      }
+
+      .history {
+        border-width: 1px 0 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .setup,
+      .history,
+      .stage {
+        padding: 18px;
+      }
+
+      .stage-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .status {
+        max-width: 100%;
+      }
+
+      .winner-name {
+        font-size: clamp(58px, 18vw, 116px);
+      }
+
+      .winner-set.is-batch {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="setup" aria-label="Raffle setup">
+      <h1 class="brand">
+        <span class="brand-title">Raffle Draw</span>
+        <span class="brand-subtitle">Load a CSV list and press Enter to draw one winner at a time.</span>
+      </h1>
+
+      <label class="field-label" for="eventTitleInput">Screen Title</label>
+      <input class="title-input" id="eventTitleInput" type="text" value="Raffle Draw" autocomplete="off">
+
+      <label class="field-label" for="csvFile">Participant CSV</label>
+      <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
+      <label class="drop-zone" id="dropZone" for="csvFile">
+        <span>
+          <strong>Select CSV File</strong>
+          Example: 1,양민규<br>
+          Use a list with number and Korean name.
+        </span>
+      </label>
+
+      <div class="stats" aria-live="polite">
+        <div class="stat">
+          <span class="stat-label">Total</span>
+          <span class="stat-value" id="totalCount">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Remaining</span>
+          <span class="stat-value" id="remainingCount">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Winners</span>
+          <span class="stat-value" id="winnerCount">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Absent</span>
+          <span class="stat-value" id="absentCount">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">File</span>
+          <span class="stat-value" id="fileState">-</span>
+        </div>
+      </div>
+
+      <label class="field-label">Winners per Draw</label>
+      <div class="draw-count-control" role="group" aria-label="Winners per draw">
+        <button class="step-button" id="drawCountMinus" type="button" aria-label="Decrease winners per draw">-</button>
+        <input class="draw-count-input" id="drawCountInput" type="number" min="1" max="50" step="1" value="1" inputmode="numeric" aria-label="Winners per draw">
+        <button class="step-button" id="drawCountPlus" type="button" aria-label="Increase winners per draw">+</button>
+      </div>
+
+      <div class="actions">
+        <button class="action-button primary" id="drawButton" type="button">Draw Winner</button>
+        <button class="action-button" id="absentButton" type="button">Mark Current Absent</button>
+        <button class="action-button" id="restoreAbsentButton" type="button">Restore Last Absent</button>
+        <button class="action-button" id="fullscreenButton" type="button">Full Screen</button>
+        <button class="action-button" id="undoButton" type="button">Undo Last Winner</button>
+        <button class="action-button" id="exportButton" type="button">Save Results CSV</button>
+        <button class="action-button danger" id="resetButton" type="button">Restart Draw</button>
+      </div>
+
+      <p class="hint">
+        Press Enter or Space after loading the list. Add an English Name column
+        for verified pronunciation; otherwise the app will auto-generate one.
+      </p>
+    </aside>
+
+    <main class="stage" aria-label="Raffle stage">
+      <header class="stage-header">
+        <div class="event-title" id="eventTitleDisplay">Raffle Draw</div>
+        <div class="status" id="statusMessage">Load a CSV to begin</div>
+      </header>
+
+      <section class="winner-board" id="winnerBoard" aria-live="polite" aria-atomic="true">
+        <div class="winner-number" id="winnerNumber">No.</div>
+        <div class="winner-name" id="winnerName">Ready</div>
+        <div class="winner-korean" id="winnerKorean">Korean name will appear here</div>
+        <div class="winner-meta" id="winnerMeta">CSV format: No., Korean Name, optional English Name.</div>
+      </section>
+
+      <button class="big-draw" id="bigDrawButton" type="button">Press Enter or Click to Draw</button>
+    </main>
+
+    <aside class="history" aria-label="Winner history">
+      <div class="history-header">
+        <h2 class="history-title">Winner History</h2>
+        <span class="history-count" id="historyCount">0</span>
+      </div>
+      <ol class="history-list" id="historyList"></ol>
+
+      <div class="absent-section">
+        <div class="history-header">
+          <h2 class="history-title">Absent</h2>
+          <span class="history-count" id="absenteeCount">0</span>
+        </div>
+        <ol class="history-list" id="absenteeList"></ol>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "raffle-draw-state-v1";
+    const DRAW_DURATION_MS = 500;
+    const MIN_DRAW_COUNT = 1;
+    const MAX_DRAW_COUNT = 50;
+
+    const state = {
+      title: "Raffle Draw",
+      sourceName: "",
+      participants: [],
+      remaining: [],
+      winners: [],
+      absentees: [],
+      currentBatch: [],
+      current: null,
+      drawCount: 1,
+      pendingReplacementCount: 0,
+      spinning: false
+    };
+
+    const elements = {
+      csvFile: document.getElementById("csvFile"),
+      dropZone: document.getElementById("dropZone"),
+      eventTitleInput: document.getElementById("eventTitleInput"),
+      eventTitleDisplay: document.getElementById("eventTitleDisplay"),
+      totalCount: document.getElementById("totalCount"),
+      remainingCount: document.getElementById("remainingCount"),
+      winnerCount: document.getElementById("winnerCount"),
+      absentCount: document.getElementById("absentCount"),
+      fileState: document.getElementById("fileState"),
+      drawButton: document.getElementById("drawButton"),
+      bigDrawButton: document.getElementById("bigDrawButton"),
+      drawCountInput: document.getElementById("drawCountInput"),
+      drawCountMinus: document.getElementById("drawCountMinus"),
+      drawCountPlus: document.getElementById("drawCountPlus"),
+      absentButton: document.getElementById("absentButton"),
+      restoreAbsentButton: document.getElementById("restoreAbsentButton"),
+      fullscreenButton: document.getElementById("fullscreenButton"),
+      undoButton: document.getElementById("undoButton"),
+      exportButton: document.getElementById("exportButton"),
+      resetButton: document.getElementById("resetButton"),
+      statusMessage: document.getElementById("statusMessage"),
+      winnerBoard: document.getElementById("winnerBoard"),
+      winnerNumber: document.getElementById("winnerNumber"),
+      winnerName: document.getElementById("winnerName"),
+      winnerKorean: document.getElementById("winnerKorean"),
+      winnerMeta: document.getElementById("winnerMeta"),
+      historyCount: document.getElementById("historyCount"),
+      historyList: document.getElementById("historyList"),
+      absenteeCount: document.getElementById("absenteeCount"),
+      absenteeList: document.getElementById("absenteeList")
+    };
+
+    const HANGUL_START = 0xac00;
+    const HANGUL_END = 0xd7a3;
+    const HANGUL_BASE = 588;
+    const VOWEL_BASE = 28;
+    const INITIALS = ["g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s", "ss", "", "j", "jj", "ch", "k", "t", "p", "h"];
+    const VOWELS = ["a", "ae", "ya", "yae", "eo", "e", "yeo", "ye", "o", "wa", "wae", "oe", "yo", "u", "wo", "we", "wi", "yu", "eu", "ui", "i"];
+    const FINALS = ["", "k", "k", "ks", "n", "nj", "nh", "t", "l", "lk", "lm", "lb", "ls", "lt", "lp", "lh", "m", "p", "ps", "t", "t", "ng", "t", "t", "k", "t", "p", "t"];
+    const SURNAME_ROMANIZATION = new Map([
+      ["김", "Kim"],
+      ["이", "Lee"],
+      ["박", "Park"],
+      ["최", "Choi"],
+      ["정", "Jung"],
+      ["강", "Kang"],
+      ["조", "Cho"],
+      ["윤", "Yoon"],
+      ["장", "Jang"],
+      ["임", "Lim"],
+      ["한", "Han"],
+      ["오", "Oh"],
+      ["서", "Seo"],
+      ["신", "Shin"],
+      ["권", "Kwon"],
+      ["황", "Hwang"],
+      ["안", "Ahn"],
+      ["송", "Song"],
+      ["류", "Ryu"],
+      ["홍", "Hong"],
+      ["전", "Jeon"],
+      ["고", "Ko"],
+      ["문", "Moon"],
+      ["양", "Yang"],
+      ["손", "Son"],
+      ["배", "Bae"],
+      ["백", "Baek"],
+      ["허", "Heo"],
+      ["유", "Yoo"],
+      ["남", "Nam"],
+      ["심", "Shim"],
+      ["노", "Noh"],
+      ["하", "Ha"],
+      ["곽", "Kwak"],
+      ["성", "Sung"],
+      ["차", "Cha"],
+      ["주", "Joo"],
+      ["우", "Woo"],
+      ["구", "Koo"],
+      ["민", "Min"],
+      ["진", "Jin"],
+      ["지", "Ji"],
+      ["엄", "Um"],
+      ["채", "Chae"],
+      ["원", "Won"],
+      ["천", "Chun"],
+      ["방", "Bang"],
+      ["공", "Gong"],
+      ["현", "Hyun"],
+      ["함", "Ham"],
+      ["변", "Byun"],
+      ["염", "Yeom"],
+      ["여", "Yeo"],
+      ["추", "Choo"],
+      ["도", "Do"],
+      ["석", "Seok"],
+      ["마", "Ma"],
+      ["길", "Gil"],
+      ["위", "Wi"],
+      ["표", "Pyo"],
+      ["명", "Myung"],
+      ["기", "Ki"],
+      ["반", "Ban"],
+      ["라", "Ra"],
+      ["왕", "Wang"],
+      ["금", "Keum"],
+      ["옥", "Ok"],
+      ["육", "Yook"],
+      ["인", "In"],
+      ["맹", "Maeng"],
+      ["제", "Je"],
+      ["모", "Mo"],
+      ["탁", "Tak"],
+      ["국", "Kook"],
+      ["어", "Eo"],
+      ["은", "Eun"],
+      ["편", "Pyeon"]
+    ]);
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let inQuotes = false;
+
+      for (let index = 0; index < text.length; index += 1) {
+        const char = text[index];
+        const next = text[index + 1];
+
+        if (char === "\"") {
+          if (inQuotes && next === "\"") {
+            cell += "\"";
+            index += 1;
+          } else {
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+
+        if (char === "," && !inQuotes) {
+          row.push(cell);
+          cell = "";
+          continue;
+        }
+
+        if ((char === "\n" || char === "\r") && !inQuotes) {
+          if (char === "\r" && next === "\n") {
+            index += 1;
+          }
+          row.push(cell);
+          pushCsvRow(rows, row);
+          row = [];
+          cell = "";
+          continue;
+        }
+
+        cell += char;
+      }
+
+      row.push(cell);
+      pushCsvRow(rows, row);
+      return rows;
+    }
+
+    function pushCsvRow(rows, row) {
+      const cleaned = row.map((value) => value.replace(/^\uFEFF/, "").trim());
+      const hasValue = cleaned.some((value) => value.length > 0);
+      if (hasValue) {
+        rows.push(cleaned);
+      }
+    }
+
+    function looksLikeHeader(row) {
+      const text = row.join(" ").toLowerCase();
+      const hasNumber = /순번|번호|no\.?|number|id/.test(text);
+      const hasName = /이름|성명|korean\s*name|name/.test(text);
+      return hasNumber && hasName;
+    }
+
+    function normalizeParticipants(rows) {
+      const hasHeader = rows.length > 0 && looksLikeHeader(rows[0]);
+      const headerInfo = hasHeader ? getHeaderInfo(rows[0]) : null;
+      const dataRows = hasHeader ? rows.slice(1) : rows;
+      const participants = [];
+
+      dataRows.forEach((row, index) => {
+        const first = cleanCell(row[0]);
+        const second = cleanCell(row[1]);
+        let number = row.length >= 2 ? first : String(index + 1);
+        let name = row.length >= 2 ? second : first;
+        let providedEnglishName = "";
+        let extra = "";
+
+        if (hasHeader) {
+          number = cleanCell(row[headerInfo.numberIndex]) || String(index + 1);
+          name = cleanCell(row[headerInfo.nameIndex]);
+          providedEnglishName = headerInfo.englishNameIndex >= 0 ? cleanCell(row[headerInfo.englishNameIndex]) : "";
+          extra = row
+            .filter((_, columnIndex) => !headerInfo.usedIndexes.has(columnIndex))
+            .map(cleanCell)
+            .filter(Boolean)
+            .join(" / ");
+        } else if (row.length >= 3 && isLikelyManualEnglishName(row[2])) {
+          providedEnglishName = cleanCell(row[2]);
+          extra = row.slice(3).map(cleanCell).filter(Boolean).join(" / ");
+        } else {
+          extra = row.slice(2).map(cleanCell).filter(Boolean).join(" / ");
+        }
+
+        if (!name) {
+          return;
+        }
+
+        const englishName = providedEnglishName || romanizeKoreanName(name);
+
+        participants.push({
+          id: `${index + 1}-${number}-${name}`,
+          number: number || String(index + 1),
+          name,
+          englishName,
+          englishNameSource: providedEnglishName ? "provided" : "auto",
+          extra
+        });
+      });
+
+      return participants;
+    }
+
+    function getHeaderInfo(header) {
+      const normalized = header.map((cell) => cleanCell(cell).toLowerCase());
+      const numberIndex = findHeaderIndex(normalized, [
+        /^(no|no\.|number|id|participant\s*no|participant\s*id|순번|번호)$/
+      ], 0);
+      const englishNameIndex = findHeaderIndex(normalized, [
+        /english\s*name/,
+        /roman/,
+        /pronunciation/,
+        /reading/,
+        /영문/,
+        /로마자/,
+        /발음/
+      ], -1);
+      const nameIndex = findHeaderIndex(normalized, [
+        /korean\s*name/,
+        /participant\s*name/,
+        /^(name|full\s*name|이름|성명)$/
+      ], numberIndex === 0 ? 1 : 0, new Set([englishNameIndex]));
+      const usedIndexes = new Set([numberIndex, nameIndex]);
+
+      if (englishNameIndex >= 0) {
+        usedIndexes.add(englishNameIndex);
+      }
+
+      return {
+        numberIndex,
+        nameIndex,
+        englishNameIndex,
+        usedIndexes
+      };
+    }
+
+    function findHeaderIndex(normalizedHeader, patterns, fallback, excludedIndexes = new Set()) {
+      const index = normalizedHeader.findIndex((cell, columnIndex) => {
+        if (excludedIndexes.has(columnIndex)) {
+          return false;
+        }
+        return patterns.some((pattern) => pattern.test(cell));
+      });
+
+      return index >= 0 ? index : fallback;
+    }
+
+    function cleanCell(value) {
+      return String(value ?? "").trim();
+    }
+
+    function isLikelyManualEnglishName(value) {
+      const text = cleanCell(value);
+      return /^[A-Za-z][A-Za-z .'-]+$/.test(text) && /[\s-]/.test(text);
+    }
+
+    function romanizeKoreanName(name) {
+      const cleaned = cleanCell(name).replace(/\s+/g, "");
+      const hangulChars = Array.from(cleaned).filter(isHangulSyllable);
+
+      if (hangulChars.length === 0) {
+        return cleanCell(name) || "Unknown";
+      }
+
+      if (hangulChars.length === 1) {
+        return capitalize(romanizeHangulSyllable(hangulChars[0]));
+      }
+
+      const surname = SURNAME_ROMANIZATION.get(hangulChars[0]) || capitalize(romanizeHangulSyllable(hangulChars[0]));
+      const givenName = hangulChars
+        .slice(1)
+        .map((char, index) => {
+          const romanized = romanizeHangulSyllable(char);
+          return index === 0 ? capitalize(romanized) : romanized;
+        })
+        .join("-");
+      return `${surname} ${givenName}`;
+    }
+
+    function isHangulSyllable(char) {
+      const code = char.charCodeAt(0);
+      return code >= HANGUL_START && code <= HANGUL_END;
+    }
+
+    function romanizeHangulSyllable(char) {
+      const offset = char.charCodeAt(0) - HANGUL_START;
+      const initialIndex = Math.floor(offset / HANGUL_BASE);
+      const vowelIndex = Math.floor((offset % HANGUL_BASE) / VOWEL_BASE);
+      const finalIndex = offset % VOWEL_BASE;
+      return `${INITIALS[initialIndex]}${VOWELS[vowelIndex]}${FINALS[finalIndex]}`;
+    }
+
+    function capitalize(text) {
+      return text ? `${text[0].toUpperCase()}${text.slice(1)}` : "";
+    }
+
+    async function readCsvFile(file) {
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder("utf-8").decode(buffer);
+
+      if (text.includes("\uFFFD")) {
+        try {
+          text = new TextDecoder("euc-kr").decode(buffer);
+        } catch (error) {
+          console.warn("EUC-KR decode failed, keeping UTF-8 result.", error);
+        }
+      }
+
+      return text;
+    }
+
+    async function loadFile(file) {
+      if (!file) {
+        return;
+      }
+
+      try {
+        setStatus("Reading CSV");
+        const text = await readCsvFile(file);
+        const participants = normalizeParticipants(parseCsv(text));
+
+        if (participants.length === 0) {
+          setStatus("No participant names found");
+          return;
+        }
+
+        state.sourceName = file.name;
+        state.participants = participants;
+        state.remaining = participants.slice();
+        state.winners = [];
+        state.absentees = [];
+        state.currentBatch = [];
+        state.current = null;
+        state.pendingReplacementCount = 0;
+
+        saveState();
+        render();
+        setStatus(`${participants.length.toLocaleString("en-US")} participants loaded`);
+      } catch (error) {
+        console.error(error);
+        setStatus("Could not load CSV");
+      }
+    }
+
+    function drawWinner() {
+      if (state.spinning) {
+        return;
+      }
+
+      if (state.remaining.length === 0) {
+        setStatus(state.participants.length === 0 ? "Load a CSV first" : "All participants have been drawn");
+        return;
+      }
+
+      state.spinning = true;
+      elements.winnerBoard.classList.add("is-spinning");
+      setControlsDisabled(true);
+      setStatus("Drawing");
+
+      const startedAt = Date.now();
+      const duration = DRAW_DURATION_MS;
+      const drawCount = getNextDrawCount();
+      const shuffleTimer = window.setInterval(() => {
+        displayWinnerBatch(getPreviewBatch(drawCount), "Drawing...");
+      }, 64);
+
+      window.setTimeout(() => {
+        window.clearInterval(shuffleTimer);
+        const winners = recordRandomWinners(drawCount);
+        const elapsed = Date.now() - startedAt;
+        state.spinning = false;
+
+        displayWinnerBatch(getActiveCurrentBatch(), getWinnerBatchMeta(winners));
+        elements.winnerBoard.classList.remove("is-spinning");
+        setControlsDisabled(false);
+        setStatus(getDrawCompleteStatus(winners));
+        saveState();
+        renderCountsAndHistory();
+      }, duration);
+    }
+
+    function recordWinnerFromIndex(winnerIndex, drawnAt = new Date().toISOString()) {
+      return recordWinnersFromIndexes([winnerIndex], drawnAt)[0];
+    }
+
+    function recordWinnersFromIndexes(winnerIndexes, drawnAt = new Date().toISOString()) {
+      const replacementDraw = state.pendingReplacementCount > 0 && state.currentBatch.length > 0;
+      const winners = winnerIndexes.map((winnerIndex) => recordSingleWinnerFromIndex(winnerIndex, drawnAt));
+      finishRecordedBatch(winners, replacementDraw);
+      return winners;
+    }
+
+    function recordRandomWinners(count, drawnAt = new Date().toISOString()) {
+      const replacementDraw = state.pendingReplacementCount > 0 && state.currentBatch.length > 0;
+      const winners = [];
+
+      for (let index = 0; index < count && state.remaining.length > 0; index += 1) {
+        winners.push(recordSingleWinnerFromIndex(secureRandomIndex(state.remaining.length), drawnAt));
+      }
+
+      finishRecordedBatch(winners, replacementDraw);
+      return winners;
+    }
+
+    function recordSingleWinnerFromIndex(winnerIndex, drawnAt) {
+      if (winnerIndex < 0 || winnerIndex >= state.remaining.length) {
+        throw new Error("Winner index is outside the remaining participant pool.");
+      }
+
+      const winner = state.remaining.splice(winnerIndex, 1)[0];
+      const recordedWinner = {
+        ...winner,
+        drawnAt,
+        drawOrder: state.winners.length + 1
+      };
+
+      state.winners.push(recordedWinner);
+      return recordedWinner;
+    }
+
+    function finishRecordedBatch(winners, appendToCurrentBatch) {
+      const nextBatch = appendToCurrentBatch ? [...state.currentBatch, ...winners] : winners;
+      state.currentBatch = nextBatch;
+      state.current = nextBatch.length > 0 ? nextBatch[nextBatch.length - 1] : null;
+
+      if (state.pendingReplacementCount > 0) {
+        state.pendingReplacementCount = Math.max(0, state.pendingReplacementCount - winners.length);
+      }
+    }
+
+    function getNextDrawCount() {
+      const target = state.pendingReplacementCount > 0 ? state.pendingReplacementCount : state.drawCount;
+      return Math.max(1, Math.min(target, state.remaining.length));
+    }
+
+    function getPreviewBatch(count) {
+      const pool = state.remaining.slice();
+      const preview = [];
+
+      for (let index = 0; index < count && pool.length > 0; index += 1) {
+        const previewIndex = Math.floor(Math.random() * pool.length);
+        preview.push(pool.splice(previewIndex, 1)[0]);
+      }
+
+      return preview;
+    }
+
+    function getActiveCurrentBatch() {
+      if (state.currentBatch.length > 0) {
+        return state.currentBatch.filter((winner) => state.winners.some((item) => item.id === winner.id));
+      }
+
+      return state.current ? [state.current] : [];
+    }
+
+    function getWinnerBatchMeta(winners) {
+      if (winners.length === 1) {
+        return `Winner #${state.winners.length}`;
+      }
+
+      return `${winners.length} Winners`;
+    }
+
+    function getDrawCompleteStatus(winners) {
+      if (state.pendingReplacementCount > 0) {
+        return `${winners.length} replacement drawn · ${state.pendingReplacementCount} still needed`;
+      }
+
+      if (state.remaining.length === 0) {
+        return "All participants have been drawn";
+      }
+
+      return winners.length > 1 ? `${winners.length} winners confirmed` : "Winner confirmed";
+    }
+
+    function secureRandomIndex(max) {
+      if (max <= 1) {
+        return 0;
+      }
+
+      if (!window.crypto || !window.crypto.getRandomValues) {
+        return Math.floor(Math.random() * max);
+      }
+
+      const bucket = new Uint32Array(1);
+      const maxUint = 0xffffffff;
+      const limit = Math.floor(maxUint / max) * max;
+
+      do {
+        window.crypto.getRandomValues(bucket);
+      } while (bucket[0] >= limit);
+
+      return bucket[0] % max;
+    }
+
+    function undoLastWinner() {
+      if (state.spinning || state.winners.length === 0) {
+        return;
+      }
+
+      const last = state.winners.pop();
+      const participant = state.participants.find((item) => item.id === last.id);
+
+      if (participant) {
+        state.remaining.push(participant);
+      }
+
+      state.current = state.winners.length > 0 ? state.winners[state.winners.length - 1] : null;
+      saveState();
+      render();
+      setStatus("Last winner undone");
+    }
+
+    function markCurrentAbsent() {
+      if (state.spinning || !state.current) {
+        return;
+      }
+
+      markWinnerAbsentById(state.current.id);
+    }
+
+    function markWinnerAbsentById(winnerId) {
+      if (state.spinning || !winnerId) {
+        return;
+      }
+
+      const winnerIndex = state.winners.findIndex((winner) => winner.id === winnerId);
+
+      if (winnerIndex < 0) {
+        setStatus("No active winner to mark absent");
+        return;
+      }
+
+      const [absent] = state.winners.splice(winnerIndex, 1);
+      renumberWinners();
+      state.currentBatch = state.currentBatch.filter((winner) => winner.id !== absent.id);
+      state.pendingReplacementCount += 1;
+      state.absentees.push({
+        ...absent,
+        absentOrder: state.absentees.length + 1,
+        originalDrawOrder: absent.drawOrder,
+        markedAbsentAt: new Date().toISOString()
+      });
+      state.current = state.currentBatch.length > 0 ? state.currentBatch[state.currentBatch.length - 1] : null;
+
+      saveState();
+      render();
+      setStatus(`${getWinnerEnglishName(absent)} marked absent. Draw ${state.pendingReplacementCount} replacement${state.pendingReplacementCount === 1 ? "" : "s"}.`);
+    }
+
+    function restoreLastAbsent() {
+      if (state.spinning || state.absentees.length === 0) {
+        return;
+      }
+
+      const restored = state.absentees.pop();
+      renumberAbsentees();
+      const participant = state.participants.find((item) => item.id === restored.id);
+      const alreadyAvailable = state.remaining.some((item) => item.id === restored.id);
+      const alreadyWinner = state.winners.some((item) => item.id === restored.id);
+
+      if (participant && !alreadyAvailable && !alreadyWinner) {
+        state.remaining.push(participant);
+      }
+
+      state.current = null;
+      state.currentBatch = getActiveCurrentBatch();
+      state.pendingReplacementCount = Math.max(0, state.pendingReplacementCount - 1);
+      saveState();
+      render();
+      setStatus(`${getWinnerEnglishName(restored)} restored to the draw pool`);
+    }
+
+    function renumberWinners() {
+      state.winners.forEach((winner, index) => {
+        winner.drawOrder = index + 1;
+      });
+    }
+
+    function renumberAbsentees() {
+      state.absentees.forEach((absentee, index) => {
+        absentee.absentOrder = index + 1;
+      });
+    }
+
+    function resetDraw() {
+      if (state.participants.length === 0 || state.spinning) {
+        return;
+      }
+
+      const confirmed = window.confirm("Clear the current winner history and restart this draw?");
+      if (!confirmed) {
+        return;
+      }
+
+      state.remaining = state.participants.slice();
+      state.winners = [];
+      state.absentees = [];
+      state.currentBatch = [];
+      state.current = null;
+      state.pendingReplacementCount = 0;
+      saveState();
+      render();
+      setStatus("Draw restarted");
+    }
+
+    function exportWinners() {
+      if (state.winners.length === 0 && state.absentees.length === 0) {
+        setStatus("No draw history to save");
+        return;
+      }
+
+      const exportData = getExportData();
+      const csv = [exportData.header, ...exportData.rows].map(toCsvLine).join("\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+
+      link.href = url;
+      link.download = `raffle-winners-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Results CSV saved");
+    }
+
+    function getExportData() {
+      const header = ["Status", "Order", "No.", "Korean Name", "English Name", "English Name Source", "Extra", "Drawn At", "Marked Absent At"];
+      const winnerRows = state.winners.map((winner) => [
+        "Winner",
+        winner.drawOrder,
+        winner.number,
+        winner.name,
+        getWinnerEnglishName(winner),
+        winner.englishNameSource || "auto",
+        winner.extra || "",
+        winner.drawnAt,
+        ""
+      ]);
+      const absenteeRows = state.absentees.map((absentee) => [
+        "Absent",
+        absentee.originalDrawOrder || "",
+        absentee.number,
+        absentee.name,
+        getWinnerEnglishName(absentee),
+        absentee.englishNameSource || "auto",
+        absentee.extra || "",
+        absentee.drawnAt || "",
+        absentee.markedAbsentAt || ""
+      ]);
+
+      return {
+        header,
+        rows: [...winnerRows, ...absenteeRows]
+      };
+    }
+
+    function toCsvLine(values) {
+      return values.map((value) => {
+        const text = String(value ?? "");
+        if (/[",\n\r]/.test(text)) {
+          return `"${text.replace(/"/g, "\"\"")}"`;
+        }
+        return text;
+      }).join(",");
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
+
+    function displayWinner(winner, meta) {
+      displayWinnerBatch(winner ? [winner] : [], meta);
+    }
+
+    function displayWinnerBatch(winners, meta, options = {}) {
+      elements.winnerBoard.innerHTML = "";
+
+      if (winners.length === 0) {
+        elements.winnerBoard.appendChild(createWinnerCard({
+          number: "No.",
+          englishName: "Ready",
+          koreanName: "Korean name will appear here",
+          meta: "CSV format: No., Korean Name, optional English Name."
+        }));
+        return;
+      }
+
+      const set = document.createElement("div");
+      set.className = `winner-set ${winners.length > 1 ? "is-batch" : "is-single"} ${winners.length > 6 ? "is-large-batch" : ""}`;
+
+      winners.forEach((winner) => {
+        set.appendChild(createWinnerCard({
+          number: winner.isStatus ? winner.number : `No. ${winner.number}`,
+          englishName: getWinnerEnglishName(winner),
+          koreanName: winner.name,
+          meta: winner.isStatus ? winner.extra : (winner.extra ? `${meta} · ${winner.extra}` : meta),
+          winnerId: winner.id,
+          showAbsentAction: winner.isStatus ? false : (options.showAbsentAction ?? state.winners.some((item) => item.id === winner.id))
+        }));
+      });
+
+      elements.winnerBoard.appendChild(set);
+    }
+
+    function createWinnerCard({ number, englishName, koreanName, meta, winnerId, showAbsentAction = false }) {
+      const card = document.createElement("article");
+      card.className = "winner-card";
+
+      const numberNode = document.createElement("div");
+      numberNode.className = "winner-number";
+      numberNode.textContent = number;
+
+      const nameNode = document.createElement("div");
+      nameNode.className = "winner-name";
+      nameNode.textContent = englishName;
+
+      const koreanNode = document.createElement("div");
+      koreanNode.className = "winner-korean";
+      koreanNode.textContent = koreanName;
+
+      const metaNode = document.createElement("div");
+      metaNode.className = "winner-meta";
+      metaNode.textContent = meta;
+
+      card.append(numberNode, nameNode, koreanNode, metaNode);
+
+      if (showAbsentAction && winnerId) {
+        const absentButton = document.createElement("button");
+        absentButton.className = "absent-current-button";
+        absentButton.type = "button";
+        absentButton.dataset.absentId = winnerId;
+        absentButton.textContent = "Absent";
+        card.appendChild(absentButton);
+      }
+
+      return card;
+    }
+
+    function getWinnerEnglishName(winner) {
+      return winner.englishName || romanizeKoreanName(winner.name);
+    }
+
+    function render() {
+      elements.eventTitleInput.value = state.title;
+      elements.eventTitleDisplay.textContent = state.title || "Raffle Draw";
+
+      const activeBatch = getActiveCurrentBatch();
+
+      if (activeBatch.length > 0) {
+        const order = activeBatch.length === 1 ? state.winners.find((winner) => winner.id === activeBatch[0].id)?.drawOrder : null;
+        displayWinnerBatch(activeBatch, order ? `Winner #${order}` : "Current Winners");
+      } else if (state.participants.length > 0 && state.remaining.length > 0) {
+        displayWinnerBatch([{
+          id: "",
+          isStatus: true,
+          number: "Ready",
+          englishName: state.pendingReplacementCount > 0 ? `Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}` : "Enter",
+          name: "Press Enter to draw",
+          extra: "The English pronunciation will be shown first."
+        }], "", { showAbsentAction: false });
+      } else if (state.participants.length > 0) {
+        displayWinnerBatch([{
+          id: "",
+          isStatus: true,
+          number: "Complete",
+          englishName: "All Done",
+          name: "No participants remaining",
+          extra: `${state.winners.length} winners · ${state.absentees.length} absent`
+        }], "", { showAbsentAction: false });
+      } else {
+        displayWinner(null);
+      }
+
+      renderCountsAndHistory();
+    }
+
+    function renderCountsAndHistory() {
+      elements.totalCount.textContent = state.participants.length.toLocaleString("en-US");
+      elements.remainingCount.textContent = state.remaining.length.toLocaleString("en-US");
+      elements.winnerCount.textContent = state.winners.length.toLocaleString("en-US");
+      elements.absentCount.textContent = state.absentees.length.toLocaleString("en-US");
+      elements.fileState.textContent = state.sourceName ? "Loaded" : "-";
+      elements.historyCount.textContent = state.winners.length.toLocaleString("en-US");
+      elements.absenteeCount.textContent = state.absentees.length.toLocaleString("en-US");
+
+      const canDraw = state.participants.length > 0 && state.remaining.length > 0 && !state.spinning;
+      const activeBatch = getActiveCurrentBatch();
+      const canMarkAbsent = activeBatch.length === 1 && Boolean(state.current) && state.winners.some((winner) => winner.id === state.current.id) && !state.spinning;
+      elements.drawButton.disabled = !canDraw;
+      elements.bigDrawButton.disabled = !canDraw;
+      elements.absentButton.disabled = !canMarkAbsent;
+      elements.restoreAbsentButton.disabled = state.absentees.length === 0 || state.spinning;
+      elements.undoButton.disabled = state.winners.length === 0 || state.spinning;
+      elements.resetButton.disabled = state.participants.length === 0 || state.spinning;
+      elements.exportButton.disabled = (state.winners.length === 0 && state.absentees.length === 0) || state.spinning;
+      elements.drawButton.textContent = getDrawButtonText();
+      elements.bigDrawButton.textContent = canDraw ? getBigDrawButtonText() : (state.participants.length === 0 ? "Load CSV to Begin" : "No Participants Remaining");
+      elements.drawCountInput.value = state.drawCount;
+      elements.drawCountInput.disabled = state.spinning;
+      elements.drawCountMinus.disabled = state.spinning || state.drawCount <= MIN_DRAW_COUNT;
+      elements.drawCountPlus.disabled = state.spinning || state.drawCount >= MAX_DRAW_COUNT;
+
+      elements.historyList.innerHTML = "";
+      elements.absenteeList.innerHTML = "";
+
+      if (state.winners.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "empty-history";
+        empty.textContent = "No winners yet.";
+        elements.historyList.appendChild(empty);
+      } else {
+        state.winners.slice().reverse().forEach((winner) => {
+          const item = document.createElement("li");
+          item.className = "history-item";
+
+          const order = document.createElement("span");
+          order.className = "history-order";
+          order.textContent = `${winner.drawOrder}.`;
+
+          const name = document.createElement("span");
+          name.className = "history-name";
+          name.textContent = `${winner.number} ${getWinnerEnglishName(winner)}`;
+
+          item.append(order, name);
+
+          if (winner.name || winner.extra) {
+            const extra = document.createElement("span");
+            extra.className = "history-extra";
+            extra.textContent = [winner.name, winner.extra].filter(Boolean).join(" · ");
+            item.appendChild(extra);
+          }
+
+          elements.historyList.appendChild(item);
+        });
+      }
+
+      if (state.absentees.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "empty-history";
+        empty.textContent = "No absent winners.";
+        elements.absenteeList.appendChild(empty);
+        return;
+      }
+
+      state.absentees.slice().reverse().forEach((absentee) => {
+        const item = document.createElement("li");
+        item.className = "history-item";
+
+        const order = document.createElement("span");
+        order.className = "history-order";
+        order.textContent = `${absentee.absentOrder}.`;
+
+        const name = document.createElement("span");
+        name.className = "history-name";
+        name.textContent = `${absentee.number} ${getWinnerEnglishName(absentee)}`;
+
+        const extra = document.createElement("span");
+        extra.className = "history-extra";
+        extra.textContent = [absentee.name, absentee.extra].filter(Boolean).join(" · ");
+
+        item.append(order, name, extra);
+        elements.absenteeList.appendChild(item);
+      });
+    }
+
+    function getDrawButtonText() {
+      if (state.pendingReplacementCount > 0) {
+        return `Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}`;
+      }
+
+      return state.drawCount > 1 ? `Draw ${state.drawCount} Winners` : "Draw Winner";
+    }
+
+    function getBigDrawButtonText() {
+      if (state.pendingReplacementCount > 0) {
+        return `Press Enter to Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}`;
+      }
+
+      return state.drawCount > 1 ? `Press Enter to Draw ${state.drawCount} Winners` : "Press Enter or Click to Draw";
+    }
+
+    function setControlsDisabled(disabled) {
+      elements.csvFile.disabled = disabled;
+      elements.drawButton.disabled = disabled;
+      elements.bigDrawButton.disabled = disabled;
+      elements.absentButton.disabled = disabled;
+      elements.restoreAbsentButton.disabled = disabled;
+      elements.drawCountInput.disabled = disabled;
+      elements.drawCountMinus.disabled = disabled;
+      elements.drawCountPlus.disabled = disabled;
+      elements.undoButton.disabled = disabled;
+      elements.exportButton.disabled = disabled;
+      elements.resetButton.disabled = disabled;
+    }
+
+    function setStatus(message) {
+      elements.statusMessage.textContent = message;
+    }
+
+    function saveState() {
+      const payload = {
+        title: state.title,
+        sourceName: state.sourceName,
+        participants: state.participants,
+        remaining: state.remaining,
+        winners: state.winners,
+        absentees: state.absentees,
+        currentBatch: state.currentBatch,
+        current: state.current,
+        drawCount: state.drawCount,
+        pendingReplacementCount: state.pendingReplacementCount
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    function restoreState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) {
+        render();
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(saved);
+        if (!Array.isArray(payload.participants)) {
+          render();
+          return;
+        }
+
+        state.title = normalizeTitle(payload.title);
+        state.sourceName = payload.sourceName || "";
+        state.participants = payload.participants || [];
+        state.remaining = payload.remaining || [];
+        state.winners = payload.winners || [];
+        state.absentees = payload.absentees || [];
+        state.current = payload.current || null;
+        state.currentBatch = Array.isArray(payload.currentBatch) ? payload.currentBatch : (state.current ? [state.current] : []);
+        state.drawCount = normalizeDrawCount(payload.drawCount);
+        state.pendingReplacementCount = Number.isInteger(payload.pendingReplacementCount) ? Math.max(0, payload.pendingReplacementCount) : 0;
+        render();
+
+        if (state.participants.length > 0) {
+          setStatus("Previous raffle state restored");
+        }
+      } catch (error) {
+        console.warn("Saved raffle state could not be restored.", error);
+        render();
+      }
+    }
+
+    function normalizeTitle(title) {
+      const cleanTitle = cleanCell(title);
+      return cleanTitle && cleanTitle !== "오늘의 추첨" ? cleanTitle : "Raffle Draw";
+    }
+
+    function isEditingTarget(target) {
+      const tagName = target.tagName;
+      return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target.isContentEditable;
+    }
+
+    function setDrawCount(count) {
+      state.drawCount = normalizeDrawCount(count);
+      saveState();
+      renderCountsAndHistory();
+      setStatus(state.drawCount === 1 ? "Single-winner draw mode" : `${state.drawCount}-winner draw mode`);
+    }
+
+    function normalizeDrawCount(count) {
+      const parsed = Number.parseInt(count, 10);
+      if (!Number.isFinite(parsed)) {
+        return MIN_DRAW_COUNT;
+      }
+      return Math.max(MIN_DRAW_COUNT, Math.min(MAX_DRAW_COUNT, parsed));
+    }
+
+    elements.csvFile.addEventListener("change", (event) => {
+      loadFile(event.target.files[0]);
+      event.target.value = "";
+    });
+
+    elements.dropZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      elements.dropZone.classList.add("is-dragging");
+    });
+
+    elements.dropZone.addEventListener("dragleave", () => {
+      elements.dropZone.classList.remove("is-dragging");
+    });
+
+    elements.dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      elements.dropZone.classList.remove("is-dragging");
+      loadFile(event.dataTransfer.files[0]);
+    });
+
+    elements.eventTitleInput.addEventListener("input", (event) => {
+      state.title = event.target.value.trim() || "Raffle Draw";
+      elements.eventTitleDisplay.textContent = state.title;
+      saveState();
+    });
+
+    elements.drawCountMinus.addEventListener("click", () => {
+      setDrawCount(state.drawCount - 1);
+    });
+
+    elements.drawCountPlus.addEventListener("click", () => {
+      setDrawCount(state.drawCount + 1);
+    });
+
+    elements.drawCountInput.addEventListener("change", (event) => {
+      setDrawCount(event.target.value);
+    });
+
+    elements.drawCountInput.addEventListener("blur", (event) => {
+      event.target.value = state.drawCount;
+    });
+
+    elements.winnerBoard.addEventListener("click", (event) => {
+      const absentButton = event.target.closest("[data-absent-id]");
+      if (!absentButton) {
+        return;
+      }
+
+      markWinnerAbsentById(absentButton.dataset.absentId);
+    });
+
+    elements.drawButton.addEventListener("click", drawWinner);
+    elements.bigDrawButton.addEventListener("click", drawWinner);
+    elements.absentButton.addEventListener("click", markCurrentAbsent);
+    elements.restoreAbsentButton.addEventListener("click", restoreLastAbsent);
+    elements.undoButton.addEventListener("click", undoLastWinner);
+    elements.exportButton.addEventListener("click", exportWinners);
+    elements.resetButton.addEventListener("click", resetDraw);
+    elements.fullscreenButton.addEventListener("click", toggleFullscreen);
+
+    document.addEventListener("keydown", (event) => {
+      if (isEditingTarget(event.target)) {
+        return;
+      }
+
+      if (event.key === "Enter" || event.code === "Space") {
+        event.preventDefault();
+        drawWinner();
+      }
+    });
+
+    restoreState();
+  </script>
+</body>
+</html>
