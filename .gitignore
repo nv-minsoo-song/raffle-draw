@@ -1,6 +1,8 @@
 # Keep real participant lists and draw results out of Git.
 *.csv
 *.tsv
+*.xlsx
+*.xls
 participants*
 *participants*
 raffle-winners-*

@@ -36,10 +36,15 @@ assert(scriptMatch, "Could not find inline script in index.html");
 const context = {
   console,
   Blob: global.Blob,
+  Response: global.Response,
+  DecompressionStream: global.DecompressionStream,
   TextDecoder: global.TextDecoder,
+  DataView: global.DataView,
+  Uint8Array: global.Uint8Array,
   Uint32Array: global.Uint32Array,
   Date: global.Date,
   Math: global.Math,
+  Number: global.Number,
   JSON: global.JSON,
   String: global.String,
   Array: global.Array,
@@ -84,7 +89,9 @@ globalThis.__raffleTest = {
   MAX_DRAW_COUNT,
   state,
   parseCsv,
+  readXlsxRows,
   normalizeParticipants,
+  getHeaderInfo,
   romanizeKoreanName,
   normalizeDrawCount,
   recordWinnerFromIndex,
@@ -111,6 +118,11 @@ assert(sampleParticipants[0].name === "양민규", "First Korean name should be 
 assert(sampleParticipants[0].englishName === "Yang Min-gyu", "양민규 should romanize as Yang Min-gyu");
 assert(api.romanizeKoreanName("김민수") === "Kim Min-su", "김민수 should romanize as Kim Min-su");
 assert(api.romanizeKoreanName("이서연") === "Lee Seo-yeon", "이서연 should romanize as Lee Seo-yeon");
+
+const snuHeader = ["IDX", "등록 카테고리", "카테고리 코드", "이름", "단과대학(원) / 소속", "학과 및 전공 / 부서", "직급명(국문)", "행운권 추첨번호"];
+const snuHeaderInfo = api.getHeaderInfo(snuHeader);
+assert(snuHeaderInfo.nameIndex === 3, "SNU XLSX header should use 이름 as the participant name");
+assert(snuHeaderInfo.numberIndex === 7, "SNU XLSX header should prefer 행운권 추첨번호 over IDX");
 
 const overrideRows = api.parseCsv("No,Korean Name,English Name,Affiliation\n1,양민규,Min Gyu Yang,NVIDIA\n");
 const overrideParticipants = api.normalizeParticipants(overrideRows);
@@ -250,7 +262,52 @@ assert(api.state.remaining.length === 2, "Six participants minus three winners m
 assert(!api.state.winners.some((winner) => winner.id === firstCalled.id), "Absent caller should not appear in final three winners");
 assert(new Set(allResolvedIds).size === allResolvedIds.length, "Winners and absentees should not overlap");
 
-console.log("Verification passed");
-console.log(`Participants parsed: ${sampleParticipants.length}`);
-console.log(`First display name: ${sampleParticipants[0].englishName} / ${sampleParticipants[0].name}`);
-console.log("Use cases passed: auto romanization, manual English Name override, adjustable draw count, sequential 3-winner draw, simultaneous 3-winner draw, simultaneous 7-winner draw, one-absent-from-3-with-replacement, two-absent-from-7-with-replacements, absent-and-redraw, restore absent, 3-final-winners-after-absent, quoted CSV, export statuses");
+async function verifyLocalXlsx() {
+  const xlsxFiles = fs.readdirSync(".").filter((fileName) => fileName.toLowerCase().endsWith(".xlsx"));
+
+  if (xlsxFiles.length === 0) {
+    return null;
+  }
+
+  const xlsxFile = xlsxFiles[0];
+  const buffer = fs.readFileSync(xlsxFile);
+  const rows = await api.readXlsxRows(bufferToArrayBuffer(buffer));
+  const participants = api.normalizeParticipants(rows);
+  const firstParticipant = participants[0];
+
+  assert(rows.length >= 900, "Local XLSX should include the expected large worksheet");
+  assert(participants.length >= 900, "Local XLSX should parse hundreds of named participants");
+  assert(firstParticipant.number !== "652178", "Local XLSX should not use IDX as the display raffle number");
+  assert(firstParticipant.number === "1107", "Local XLSX should use 행운권 추첨번호 as the display number");
+  assert(firstParticipant.name === "서바다", "Local XLSX first named participant should parse from 이름");
+  assert(participants.some((participant) => participant.name === "Kai Cheung Ng" && participant.englishName === "Kai Cheung Ng"), "Non-Hangul names should stay readable as-is");
+
+  return {
+    fileName: xlsxFile,
+    rowCount: rows.length,
+    participantCount: participants.length,
+    firstDisplayNumber: firstParticipant.number
+  };
+}
+
+function bufferToArrayBuffer(buffer) {
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+verifyLocalXlsx()
+  .then((xlsxInfo) => {
+    console.log("Verification passed");
+    console.log(`Participants parsed: ${sampleParticipants.length}`);
+    if (xlsxInfo) {
+      console.log(`Local XLSX parsed: ${xlsxInfo.participantCount} participants from ${xlsxInfo.rowCount} rows`);
+      console.log(`Local XLSX first display number: ${xlsxInfo.firstDisplayNumber}`);
+    } else {
+      console.log("Local XLSX parsed: skipped because no .xlsx file is present");
+    }
+    console.log(`First display name: ${sampleParticipants[0].englishName} / ${sampleParticipants[0].name}`);
+    console.log("Use cases passed: auto romanization, manual English Name override, XLSX parsing, raffle-number header preference, non-Hangul name passthrough, adjustable draw count, sequential 3-winner draw, simultaneous 3-winner draw, simultaneous 7-winner draw, one-absent-from-3-with-replacement, two-absent-from-7-with-replacements, absent-and-redraw, restore absent, 3-final-winners-after-absent, quoted CSV, export statuses");
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

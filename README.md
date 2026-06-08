@@ -1,18 +1,18 @@
 # Raffle Draw
 
-An event-screen raffle app for drawing one winner at a time from a CSV list.
+An event-screen raffle app for drawing one winner at a time from a CSV or XLSX list.
 The interface is in English, and Korean names are shown with an English-readable
 pronunciation for the presenter.
 
-Participant CSV files are intentionally ignored by Git. The verification script
-generates a 790-person sample list internally for large-list testing.
+Participant CSV/XLSX files are intentionally ignored by Git. The verification
+script generates a 790-person sample list internally for large-list testing.
 
 ## How to Run
 
 Open [index.html](/Users/mingyuy/Documents/Raffle/index.html) in a browser.
 No installation or server is required.
 
-## CSV Format
+## Participant File Format
 
 Minimum format:
 
@@ -32,6 +32,10 @@ No,Korean Name,English Name,Affiliation
 
 If `English Name` is present, the app uses it exactly. If it is missing, the app
 auto-generates a readable romanization from the Korean name.
+
+The app also accepts `.xlsx` files. If a spreadsheet has a raffle/ticket column
+such as `행운권 추첨번호`, `추첨번호`, `Raffle`, or `Ticket`, that value is used as
+the display number before generic columns such as `IDX` or `ID`.
 
 ## Controls
 
@@ -61,6 +65,7 @@ node verify.js
 The verification script covers these use cases:
 
 - Parse a Korean-name CSV
+- Parse a local XLSX participant list when one is present in the project folder
 - Auto-generate English-readable names
 - Prefer a provided `English Name` column over auto-generation
 - Draw exactly three unique winners

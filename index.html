@@ -594,19 +594,19 @@
     <aside class="setup" aria-label="Raffle setup">
       <h1 class="brand">
         <span class="brand-title">Raffle Draw</span>
-        <span class="brand-subtitle">Load a CSV list and press Enter to draw one winner at a time.</span>
+        <span class="brand-subtitle">Load a CSV or XLSX list and press Enter to draw one winner at a time.</span>
       </h1>
 
       <label class="field-label" for="eventTitleInput">Screen Title</label>
       <input class="title-input" id="eventTitleInput" type="text" value="Raffle Draw" autocomplete="off">
 
-      <label class="field-label" for="csvFile">Participant CSV</label>
-      <input class="file-input" id="csvFile" type="file" accept=".csv,text/csv">
+      <label class="field-label" for="csvFile">Participant File</label>
+      <input class="file-input" id="csvFile" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       <label class="drop-zone" id="dropZone" for="csvFile">
         <span>
-          <strong>Select CSV File</strong>
+          <strong>Select CSV or XLSX File</strong>
           Example: 1,양민규<br>
-          Use a list with number and Korean name.
+          Use a list with number and name.
         </span>
       </label>
 
@@ -659,14 +659,14 @@
     <main class="stage" aria-label="Raffle stage">
       <header class="stage-header">
         <div class="event-title" id="eventTitleDisplay">Raffle Draw</div>
-        <div class="status" id="statusMessage">Load a CSV to begin</div>
+        <div class="status" id="statusMessage">Load a file to begin</div>
       </header>
 
       <section class="winner-board" id="winnerBoard" aria-live="polite" aria-atomic="true">
         <div class="winner-number" id="winnerNumber">No.</div>
         <div class="winner-name" id="winnerName">Ready</div>
         <div class="winner-korean" id="winnerKorean">Korean name will appear here</div>
-        <div class="winner-meta" id="winnerMeta">CSV format: No., Korean Name, optional English Name.</div>
+        <div class="winner-meta" id="winnerMeta">Format: No., Name, optional English Name.</div>
       </section>
 
       <button class="big-draw" id="bigDrawButton" type="button">Press Enter or Click to Draw</button>
@@ -884,7 +884,7 @@
 
     function looksLikeHeader(row) {
       const text = row.join(" ").toLowerCase();
-      const hasNumber = /순번|번호|no\.?|number|id/.test(text);
+      const hasNumber = /순번|번호|추첨|행운권|no\.?|number|ticket|raffle|draw|id|idx/.test(text);
       const hasName = /이름|성명|korean\s*name|name/.test(text);
       return hasNumber && hasName;
     }
@@ -940,7 +940,14 @@
 
     function getHeaderInfo(header) {
       const normalized = header.map((cell) => cleanCell(cell).toLowerCase());
-      const numberIndex = findHeaderIndex(normalized, [
+      const raffleNumberIndex = findHeaderIndex(normalized, [
+        /행운권.*(번호|no)/,
+        /추첨.*(번호|no)/,
+        /raffle/,
+        /ticket/,
+        /draw\s*(no|number)/
+      ], -1);
+      const numberIndex = raffleNumberIndex >= 0 ? raffleNumberIndex : findHeaderIndex(normalized, [
         /^(no|no\.|number|id|participant\s*no|participant\s*id|순번|번호)$/
       ], 0);
       const englishNameIndex = findHeaderIndex(normalized, [
@@ -1046,15 +1053,235 @@
       return text;
     }
 
+    async function readParticipantRows(file) {
+      const lowerName = file.name.toLowerCase();
+
+      if (lowerName.endsWith(".xlsx") || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+        return readXlsxRows(await file.arrayBuffer());
+      }
+
+      if (lowerName.endsWith(".xls")) {
+        throw new Error("Legacy .xls files are not supported. Please save the list as .xlsx or .csv.");
+      }
+
+      return parseCsv(await readCsvFile(file));
+    }
+
+    async function readXlsxRows(buffer) {
+      const entries = parseZipEntries(buffer);
+      const sharedStringsEntry = entries.get("xl/sharedStrings.xml");
+      const worksheetName = getFirstWorksheetName(entries);
+
+      if (!worksheetName) {
+        throw new Error("No worksheet found in the XLSX file.");
+      }
+
+      const sharedStrings = sharedStringsEntry
+        ? parseSharedStrings(await readZipText(buffer, sharedStringsEntry))
+        : [];
+      const worksheetXml = await readZipText(buffer, entries.get(worksheetName));
+      return parseWorksheetRows(worksheetXml, sharedStrings);
+    }
+
+    function parseZipEntries(buffer) {
+      const view = new DataView(buffer);
+      const endOffset = findEndOfCentralDirectory(view);
+      const entryCount = view.getUint16(endOffset + 10, true);
+      let offset = view.getUint32(endOffset + 16, true);
+      const entries = new Map();
+
+      for (let index = 0; index < entryCount; index += 1) {
+        if (view.getUint32(offset, true) !== 0x02014b50) {
+          throw new Error("Invalid XLSX central directory.");
+        }
+
+        const method = view.getUint16(offset + 10, true);
+        const compressedSize = view.getUint32(offset + 20, true);
+        const fileNameLength = view.getUint16(offset + 28, true);
+        const extraLength = view.getUint16(offset + 30, true);
+        const commentLength = view.getUint16(offset + 32, true);
+        const localHeaderOffset = view.getUint32(offset + 42, true);
+        const fileName = new TextDecoder("utf-8").decode(new Uint8Array(buffer, offset + 46, fileNameLength));
+
+        if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
+          throw new Error("Invalid XLSX local file header.");
+        }
+
+        const localFileNameLength = view.getUint16(localHeaderOffset + 26, true);
+        const localExtraLength = view.getUint16(localHeaderOffset + 28, true);
+        const dataOffset = localHeaderOffset + 30 + localFileNameLength + localExtraLength;
+
+        entries.set(fileName, {
+          method,
+          compressedSize,
+          dataOffset
+        });
+
+        offset += 46 + fileNameLength + extraLength + commentLength;
+      }
+
+      return entries;
+    }
+
+    function findEndOfCentralDirectory(view) {
+      const minimumOffset = Math.max(0, view.byteLength - 0xffff - 22);
+
+      for (let offset = view.byteLength - 22; offset >= minimumOffset; offset -= 1) {
+        if (view.getUint32(offset, true) === 0x06054b50) {
+          return offset;
+        }
+      }
+
+      throw new Error("Invalid XLSX file.");
+    }
+
+    function getFirstWorksheetName(entries) {
+      return [...entries.keys()]
+        .filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name))
+        .sort((left, right) => {
+          const leftNumber = Number(left.match(/sheet(\d+)\.xml$/)?.[1] || 0);
+          const rightNumber = Number(right.match(/sheet(\d+)\.xml$/)?.[1] || 0);
+          return leftNumber - rightNumber;
+        })[0];
+    }
+
+    async function readZipText(buffer, entry) {
+      const bytes = await readZipEntry(buffer, entry);
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+
+    async function readZipEntry(buffer, entry) {
+      const compressed = buffer.slice(entry.dataOffset, entry.dataOffset + entry.compressedSize);
+
+      if (entry.method === 0) {
+        return compressed;
+      }
+
+      if (entry.method !== 8) {
+        throw new Error("Unsupported XLSX compression method.");
+      }
+
+      return inflateRaw(compressed);
+    }
+
+    async function inflateRaw(buffer) {
+      if (typeof DecompressionStream === "undefined") {
+        throw new Error("This browser cannot decompress XLSX files. Please use Chrome, Edge, or upload CSV.");
+      }
+
+      try {
+        return await decompress(buffer, "deflate-raw");
+      } catch (error) {
+        return decompress(buffer, "deflate");
+      }
+    }
+
+    async function decompress(buffer, format) {
+      const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream(format));
+      return new Response(stream).arrayBuffer();
+    }
+
+    function parseSharedStrings(xml) {
+      const strings = [];
+      const stringRegex = /<si\b[^>]*>([\s\S]*?)<\/si>/g;
+      let match;
+
+      while ((match = stringRegex.exec(xml))) {
+        strings.push(readInlineString(match[1]));
+      }
+
+      return strings;
+    }
+
+    function parseWorksheetRows(xml, sharedStrings) {
+      const rows = [];
+      const rowRegex = /<row\b[^>]*>([\s\S]*?)<\/row>/g;
+      let rowMatch;
+
+      while ((rowMatch = rowRegex.exec(xml))) {
+        const row = [];
+        const cellRegex = /<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g;
+        let cellMatch;
+
+        while ((cellMatch = cellRegex.exec(rowMatch[1]))) {
+          const attributes = cellMatch[1] || cellMatch[2] || "";
+          const body = cellMatch[3] || "";
+          const reference = getXmlAttribute(attributes, "r");
+          const columnIndex = reference ? getColumnIndex(reference) : row.length;
+          row[columnIndex] = readCellValue(attributes, body, sharedStrings);
+        }
+
+        const cleaned = row.map((value) => cleanCell(value));
+        if (cleaned.some(Boolean)) {
+          rows.push(cleaned);
+        }
+      }
+
+      return rows;
+    }
+
+    function readCellValue(attributes, body, sharedStrings) {
+      const type = getXmlAttribute(attributes, "t");
+
+      if (type === "inlineStr") {
+        return readInlineString(body);
+      }
+
+      const value = readXmlTag(body, "v");
+
+      if (type === "s") {
+        return sharedStrings[Number.parseInt(value, 10)] || "";
+      }
+
+      return unescapeXml(value);
+    }
+
+    function readInlineString(xml) {
+      const pieces = [];
+      const textRegex = /<t\b[^>]*>([\s\S]*?)<\/t>/g;
+      let match;
+
+      while ((match = textRegex.exec(xml))) {
+        pieces.push(unescapeXml(match[1]));
+      }
+
+      return pieces.join("");
+    }
+
+    function readXmlTag(xml, tagName) {
+      const match = new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`).exec(xml);
+      return match ? match[1] : "";
+    }
+
+    function getXmlAttribute(text, name) {
+      const match = new RegExp(`${name}="([^"]*)"`).exec(text);
+      return match ? unescapeXml(match[1]) : "";
+    }
+
+    function getColumnIndex(reference) {
+      const letters = reference.match(/^[A-Z]+/i)?.[0] || "A";
+      return Array.from(letters.toUpperCase()).reduce((total, letter) => {
+        return total * 26 + letter.charCodeAt(0) - 64;
+      }, 0) - 1;
+    }
+
+    function unescapeXml(text) {
+      return String(text ?? "")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, "\"")
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&");
+    }
+
     async function loadFile(file) {
       if (!file) {
         return;
       }
 
       try {
-        setStatus("Reading CSV");
-        const text = await readCsvFile(file);
-        const participants = normalizeParticipants(parseCsv(text));
+        setStatus("Reading file");
+        const participants = normalizeParticipants(await readParticipantRows(file));
 
         if (participants.length === 0) {
           setStatus("No participant names found");
@@ -1075,7 +1302,7 @@
         setStatus(`${participants.length.toLocaleString("en-US")} participants loaded`);
       } catch (error) {
         console.error(error);
-        setStatus("Could not load CSV");
+        setStatus(error.message || "Could not load file");
       }
     }
 
@@ -1085,7 +1312,7 @@
       }
 
       if (state.remaining.length === 0) {
-        setStatus(state.participants.length === 0 ? "Load a CSV first" : "All participants have been drawn");
+        setStatus(state.participants.length === 0 ? "Load a file first" : "All participants have been drawn");
         return;
       }
 
@@ -1424,7 +1651,7 @@
           number: "No.",
           englishName: "Ready",
           koreanName: "Korean name will appear here",
-          meta: "CSV format: No., Korean Name, optional English Name."
+          meta: "Format: No., Name, optional English Name."
         }));
         return;
       }
@@ -1538,7 +1765,7 @@
       elements.resetButton.disabled = state.participants.length === 0 || state.spinning;
       elements.exportButton.disabled = (state.winners.length === 0 && state.absentees.length === 0) || state.spinning;
       elements.drawButton.textContent = getDrawButtonText();
-      elements.bigDrawButton.textContent = canDraw ? getBigDrawButtonText() : (state.participants.length === 0 ? "Load CSV to Begin" : "No Participants Remaining");
+      elements.bigDrawButton.textContent = canDraw ? getBigDrawButtonText() : (state.participants.length === 0 ? "Load File to Begin" : "No Participants Remaining");
       elements.drawCountInput.value = state.drawCount;
       elements.drawCountInput.disabled = state.spinning;
       elements.drawCountMinus.disabled = state.spinning || state.drawCount <= MIN_DRAW_COUNT;
