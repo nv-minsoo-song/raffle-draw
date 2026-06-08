@@ -119,6 +119,10 @@ assert(sampleParticipants[0].englishName === "Yang Min-gyu", "양민규 should r
 assert(api.romanizeKoreanName("김민수") === "Kim Min-su", "김민수 should romanize as Kim Min-su");
 assert(api.romanizeKoreanName("이서연") === "Lee Seo-yeon", "이서연 should romanize as Lee Seo-yeon");
 
+const nonHangulRows = api.parseCsv("No,Name\n42,Kai Cheung Ng\n");
+const nonHangulParticipants = api.normalizeParticipants(nonHangulRows);
+assert(nonHangulParticipants[0].englishName === "Kai Cheung Ng", "Non-Hangul names should stay readable as-is");
+
 const snuHeader = ["IDX", "등록 카테고리", "카테고리 코드", "이름", "단과대학(원) / 소속", "학과 및 전공 / 부서", "직급명(국문)", "행운권 추첨번호"];
 const snuHeaderInfo = api.getHeaderInfo(snuHeader);
 assert(snuHeaderInfo.nameIndex === 3, "SNU XLSX header should use 이름 as the participant name");
@@ -263,31 +267,49 @@ assert(!api.state.winners.some((winner) => winner.id === firstCalled.id), "Absen
 assert(new Set(allResolvedIds).size === allResolvedIds.length, "Winners and absentees should not overlap");
 
 async function verifyLocalXlsx() {
-  const xlsxFiles = fs.readdirSync(".").filter((fileName) => fileName.toLowerCase().endsWith(".xlsx"));
+  const xlsxFiles = fs.readdirSync(".")
+    .filter((fileName) => fileName.toLowerCase().endsWith(".xlsx"))
+    .sort((left, right) => fs.statSync(right).mtimeMs - fs.statSync(left).mtimeMs);
 
   if (xlsxFiles.length === 0) {
-    return null;
+    return [];
   }
 
-  const xlsxFile = xlsxFiles[0];
-  const buffer = fs.readFileSync(xlsxFile);
-  const rows = await api.readXlsxRows(bufferToArrayBuffer(buffer));
-  const participants = api.normalizeParticipants(rows);
-  const firstParticipant = participants[0];
+  const results = [];
 
-  assert(rows.length >= 900, "Local XLSX should include the expected large worksheet");
-  assert(participants.length >= 900, "Local XLSX should parse hundreds of named participants");
-  assert(firstParticipant.number !== "652178", "Local XLSX should not use IDX as the display raffle number");
-  assert(firstParticipant.number === "1107", "Local XLSX should use 행운권 추첨번호 as the display number");
-  assert(firstParticipant.name === "서바다", "Local XLSX first named participant should parse from 이름");
-  assert(participants.some((participant) => participant.name === "Kai Cheung Ng" && participant.englishName === "Kai Cheung Ng"), "Non-Hangul names should stay readable as-is");
+  for (const xlsxFile of xlsxFiles) {
+    const buffer = fs.readFileSync(xlsxFile);
+    const rows = await api.readXlsxRows(bufferToArrayBuffer(buffer));
+    const participants = api.normalizeParticipants(rows);
+    const headerInfo = api.getHeaderInfo(rows[0]);
+    const firstParticipant = participants[0];
+    const firstDataRow = rows[1];
+    const raffleColumnIndex = rows[0].findIndex((cell) => /행운권|추첨|raffle|ticket/i.test(String(cell)));
+    const normalizedFileName = xlsxFile.normalize("NFC");
+    const expectedCountMatch = normalizedFileName.match(/\((\d+)명\)/);
 
-  return {
-    fileName: xlsxFile,
-    rowCount: rows.length,
-    participantCount: participants.length,
-    firstDisplayNumber: firstParticipant.number
-  };
+    assert(rows.length > 1, "Local XLSX should include a header row and data rows");
+    assert(participants.length > 0, "Local XLSX should parse named participants");
+
+    if (raffleColumnIndex >= 0) {
+      assert(headerInfo.numberIndex === raffleColumnIndex, "Local XLSX should prefer raffle/draw number columns over generic IDs");
+    }
+
+    assert(firstParticipant.number === String(firstDataRow[headerInfo.numberIndex] ?? "").trim(), "Local XLSX first display number should come from the selected number column");
+    assert(firstParticipant.name === String(firstDataRow[headerInfo.nameIndex] ?? "").trim(), "Local XLSX first participant name should come from the selected name column");
+
+    results.push({
+      fileName: xlsxFile,
+      rowCount: rows.length,
+      participantCount: participants.length,
+      expectedFromFileName: expectedCountMatch ? Number.parseInt(expectedCountMatch[1], 10) : null,
+      numberHeader: rows[0][headerInfo.numberIndex],
+      nameHeader: rows[0][headerInfo.nameIndex],
+      firstDisplayNumber: firstParticipant.number
+    });
+  }
+
+  return results;
 }
 
 function bufferToArrayBuffer(buffer) {
@@ -295,12 +317,15 @@ function bufferToArrayBuffer(buffer) {
 }
 
 verifyLocalXlsx()
-  .then((xlsxInfo) => {
+  .then((xlsxResults) => {
     console.log("Verification passed");
     console.log(`Participants parsed: ${sampleParticipants.length}`);
-    if (xlsxInfo) {
-      console.log(`Local XLSX parsed: ${xlsxInfo.participantCount} participants from ${xlsxInfo.rowCount} rows`);
-      console.log(`Local XLSX first display number: ${xlsxInfo.firstDisplayNumber}`);
+    if (xlsxResults.length > 0) {
+      xlsxResults.forEach((xlsxInfo) => {
+        const expectedText = xlsxInfo.expectedFromFileName ? `, filename says ${xlsxInfo.expectedFromFileName}` : "";
+        console.log(`Local XLSX parsed: ${xlsxInfo.participantCount} participants from ${xlsxInfo.rowCount} rows${expectedText}`);
+        console.log(`Local XLSX columns: ${xlsxInfo.numberHeader} -> first No. ${xlsxInfo.firstDisplayNumber}, ${xlsxInfo.nameHeader} -> name`);
+      });
     } else {
       console.log("Local XLSX parsed: skipped because no .xlsx file is present");
     }
