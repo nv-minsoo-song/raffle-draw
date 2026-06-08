@@ -1664,7 +1664,7 @@
           number: winner.isStatus ? winner.number : `No. ${winner.number}`,
           englishName: getWinnerEnglishName(winner),
           koreanName: winner.name,
-          meta: winner.isStatus ? winner.extra : meta,
+          meta: winner.isStatus ? winner.extra : (winner.extra ? `${meta} · ${winner.extra}` : meta),
           winnerId: winner.id,
           showAbsentAction: winner.isStatus ? false : (options.showAbsentAction ?? state.winners.some((item) => item.id === winner.id))
         }));
