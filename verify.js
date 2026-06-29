@@ -1,26 +1,48 @@
 const fs = require("fs");
 const vm = require("vm");
 
-function makeElement() {
-  return {
+function makeElement(initial = {}) {
+  const classes = new Set(initial.classes || []);
+  const attributes = new Map();
+  const listeners = new Map();
+  const element = {
     textContent: "",
     value: "",
     disabled: false,
     innerHTML: "",
     files: [],
-    dataset: {},
+    dataset: initial.dataset || {},
     classList: {
-      add() {},
-      remove() {},
-      toggle() {}
+      add: (...names) => names.forEach((name) => classes.add(name)),
+      remove: (...names) => names.forEach((name) => classes.delete(name)),
+      contains: (name) => classes.has(name),
+      toggle(name, force) {
+        const next = force === undefined ? !classes.has(name) : Boolean(force);
+        if (next) {
+          classes.add(name);
+        } else {
+          classes.delete(name);
+        }
+        return next;
+      }
     },
-    addEventListener() {},
-    setAttribute() {},
+    addEventListener(type, listener) {
+      const current = listeners.get(type) || [];
+      current.push(listener);
+      listeners.set(type, current);
+    },
+    setAttribute(name, value) {
+      attributes.set(name, String(value));
+    },
+    getAttribute: (name) => attributes.get(name) ?? null,
     appendChild() {},
     append() {},
     remove() {},
-    click() {}
+    click() {
+      (listeners.get("click") || []).forEach((listener) => listener({ target: element }));
+    }
   };
+  return element;
 }
 
 function assert(condition, message) {
@@ -32,6 +54,14 @@ function assert(condition, message) {
 const html = fs.readFileSync("index.html", "utf8");
 const scriptMatch = html.match(/<script>([\s\S]*)<\/script>/);
 assert(scriptMatch, "Could not find inline script in index.html");
+
+const localStorageValues = new Map();
+const languageButtons = [
+  makeElement({ dataset: { language: "ko" }, classes: ["language-button", "is-active"] }),
+  makeElement({ dataset: { language: "ja" }, classes: ["language-button"] })
+];
+const translatedTextNode = makeElement({ dataset: { i18n: "winnerHistoryTitle" } });
+const translatedAriaNode = makeElement({ dataset: { i18nAria: "setupAria" } });
 
 const context = {
   console,
@@ -56,12 +86,17 @@ const context = {
     revokeObjectURL() {}
   },
   localStorage: {
-    getItem: () => null,
-    setItem() {}
+    getItem: (key) => localStorageValues.get(key) ?? null,
+    setItem: (key, value) => localStorageValues.set(key, String(value))
   },
   document: {
     getElementById: () => makeElement(),
-    querySelectorAll: () => [makeElement(), makeElement()],
+    querySelectorAll: (selector) => {
+      if (selector === "[data-language]") return languageButtons;
+      if (selector === "[data-i18n]") return [translatedTextNode];
+      if (selector === "[data-i18n-aria]") return [translatedAriaNode];
+      return [];
+    },
     addEventListener() {},
     createElement: () => makeElement(),
     body: makeElement(),
@@ -87,12 +122,20 @@ globalThis.__raffleTest = {
   DRAW_DURATION_MS,
   MIN_DRAW_COUNT,
   MAX_DRAW_COUNT,
+  TRANSLATIONS,
   state,
   parseCsv,
   readXlsxRows,
   normalizeParticipants,
   getHeaderInfo,
   romanizeKoreanName,
+  romanizeJapaneseKana,
+  romanizeParticipantName,
+  readCsvFile,
+  t,
+  setLanguage,
+  restoreState,
+  normalizeTitle,
   normalizeDrawCount,
   recordWinnerFromIndex,
   recordWinnersFromIndexes,
@@ -104,6 +147,42 @@ globalThis.__raffleTest = {
 };`, context);
 
 const api = context.__raffleTest;
+const usedTranslationKeys = [...scriptMatch[1].matchAll(/\bt\("([^"]+)"/g)].map((match) => match[1]);
+const koreanTranslationKeys = Object.keys(api.TRANSLATIONS.ko).sort();
+const japaneseTranslationKeys = Object.keys(api.TRANSLATIONS.ja).sort();
+assert(koreanTranslationKeys.join("\n") === japaneseTranslationKeys.join("\n"), "Korean and Japanese translation dictionaries should contain the same keys");
+usedTranslationKeys.forEach((key) => {
+  assert(key in api.TRANSLATIONS.ko, `Korean translation should include ${key}`);
+  assert(key in api.TRANSLATIONS.ja, `Japanese translation should include ${key}`);
+});
+
+languageButtons[1].click();
+assert(api.state.language === "ja", "Japanese language button should switch state language");
+assert(api.state.title === "抽選会", "Switching a default title to Japanese should localize it");
+assert(context.document.documentElement.lang === "ja", "Japanese switch should update the document lang");
+assert(translatedTextNode.textContent === "当選履歴", "Japanese switch should translate static text");
+assert(translatedAriaNode.getAttribute("aria-label") === "抽選設定", "Japanese switch should translate ARIA labels");
+assert(languageButtons[1].classList.contains("is-active"), "Japanese language button should become active");
+assert(languageButtons[1].getAttribute("aria-pressed") === "true", "Japanese language button should expose pressed state");
+assert(JSON.parse(localStorageValues.get("raffle-draw-state-v1")).language === "ja", "Selected language should persist to localStorage");
+
+localStorageValues.set("raffle-draw-state-v1", JSON.stringify({
+  title: "Raffle Draw",
+  sourceName: "",
+  participants: [],
+  remaining: [],
+  winners: [],
+  absentees: [],
+  currentBatch: [],
+  current: null,
+  drawCount: 1,
+  pendingReplacementCount: 0
+}));
+api.restoreState();
+assert(api.state.language === "ko", "Saved v1 state without a language should migrate to Korean");
+assert(api.state.title === "오늘의 추첨", "Legacy Raffle Draw title should migrate to the Korean default title");
+assert(context.document.documentElement.lang === "ko", "Migrated state should update the document language");
+
 const sampleRows = api.parseCsv(createSampleCsv(790));
 const sampleParticipants = api.normalizeParticipants(sampleRows);
 
@@ -118,6 +197,9 @@ assert(sampleParticipants[0].name === "양민규", "First Korean name should be 
 assert(sampleParticipants[0].englishName === "Yang Min-gyu", "양민규 should romanize as Yang Min-gyu");
 assert(api.romanizeKoreanName("김민수") === "Kim Min-su", "김민수 should romanize as Kim Min-su");
 assert(api.romanizeKoreanName("이서연") === "Lee Seo-yeon", "이서연 should romanize as Lee Seo-yeon");
+assert(api.romanizeJapaneseKana("ほった しんや") === "Hotta Shin'ya", "Hiragana should romanize with small-tsu and n-apostrophe handling");
+assert(api.romanizeJapaneseKana("ﾔﾏﾀﾞ ﾊﾅｺ") === "Yamada Hanako", "Half-width Katakana should normalize and romanize");
+assert(api.romanizeParticipantName("山田太郎", "ヤマダ タロウ") === "Yamada Tarou", "Japanese furigana should provide a romanized display name");
 
 const nonHangulRows = api.parseCsv("No,Name\n42,Kai Cheung Ng\n");
 const nonHangulParticipants = api.normalizeParticipants(nonHangulRows);
@@ -138,6 +220,51 @@ const quotedRows = api.parseCsv("No,Korean Name,Affiliation\n11,\"김,민수\",\
 const quotedParticipants = api.normalizeParticipants(quotedRows);
 assert(quotedParticipants[0].name === "김,민수", "Quoted comma in Korean name should parse correctly");
 assert(quotedParticipants[0].extra === "Team, A", "Quoted comma in extra info should parse correctly");
+
+const japaneseRows = api.parseCsv("抽選番号,氏名,フリガナ,ローマ字,所属\nA-001,山田太郎,ヤマダ タロウ,Taro Yamada,営業\n");
+const japaneseHeaderInfo = api.getHeaderInfo(japaneseRows[0]);
+const japaneseParticipants = api.normalizeParticipants(japaneseRows);
+assert(japaneseHeaderInfo.numberIndex === 0, "Japanese 抽選番号 should be the raffle number column");
+assert(japaneseHeaderInfo.nameIndex === 1, "Japanese 氏名 should be the participant name column");
+assert(japaneseHeaderInfo.readingIndex === 2, "Japanese フリガナ should be the reading column");
+assert(japaneseHeaderInfo.englishNameIndex === 3, "Japanese ローマ字 should be the romanized name column");
+assert(japaneseParticipants[0].number === "A-001", "Japanese raffle number should be preserved");
+assert(japaneseParticipants[0].name === "山田太郎", "Japanese original name should be preserved");
+assert(japaneseParticipants[0].englishName === "Taro Yamada", "Explicit Japanese romaji should take priority over furigana");
+assert(japaneseParticipants[0].englishNameSource === "provided", "Explicit Japanese romaji should be marked as provided");
+assert(japaneseParticipants[0].extra === "営業", "Japanese affiliation should remain extra info");
+
+const japaneseKanaRows = api.parseCsv("番号,氏名,フリガナ,所属\n2,佐藤優希,サトウ ユウキ,研究開発\n3,髙橋凛,,企画\n4,ほった しんや,,営業\n5,ﾔﾏﾀﾞ ﾊﾅｺ,,広報\n");
+const japaneseKanaParticipants = api.normalizeParticipants(japaneseKanaRows);
+assert(japaneseKanaParticipants[0].englishName === "Satou Yuuki", "Furigana should auto-romanize when explicit romaji is absent");
+assert(japaneseKanaParticipants[0].englishNameSource === "kana", "Furigana romanization should record a kana source");
+assert(japaneseKanaParticipants[1].englishName === "髙橋凛", "Kanji without a reading should safely keep the original name");
+assert(japaneseKanaParticipants[1].englishNameSource === "original", "Kanji fallback should be marked as original");
+assert(japaneseKanaParticipants[2].englishName === "Hotta Shin'ya", "Kana-only names should auto-romanize");
+assert(japaneseKanaParticipants[3].englishName === "Yamada Hanako", "Half-width Katakana names should auto-romanize");
+
+const japaneseNoNumberRows = api.parseCsv("氏名,フリガナ,所属\n鈴木花子,スズキ ハナコ,広報\n");
+const japaneseNoNumberParticipants = api.normalizeParticipants(japaneseNoNumberRows);
+assert(japaneseNoNumberParticipants.length === 1, "Japanese headers without a number column should still parse");
+assert(japaneseNoNumberParticipants[0].number === "1", "Missing Japanese numbers should fall back to row order");
+assert(japaneseNoNumberParticipants[0].englishName === "Suzuki Hanako", "Japanese no-number rows should still use furigana");
+
+const japaneseDepartmentRows = api.parseCsv("氏名,部署\n田中美咲,営業部\n");
+const japaneseDepartmentParticipants = api.normalizeParticipants(japaneseDepartmentRows);
+assert(japaneseDepartmentParticipants.length === 1, "Japanese 氏名,部署 headers should not be imported as a participant");
+assert(japaneseDepartmentParticipants[0].number === "1", "Japanese department lists should generate a row number");
+assert(japaneseDepartmentParticipants[0].name === "田中美咲", "Japanese department lists should preserve the real participant name");
+assert(japaneseDepartmentParticipants[0].extra === "営業部", "Japanese department values should remain extra info");
+
+const fullWidthJapaneseHeader = api.getHeaderInfo(["Ｎｏ．", "氏名（漢字）", "氏名（カナ）", "ローマ字氏名", "所属"]);
+assert(fullWidthJapaneseHeader.numberIndex === 0, "Full-width Japanese No. headers should normalize");
+assert(fullWidthJapaneseHeader.nameIndex === 1, "Japanese kanji-name headers should normalize");
+assert(fullWidthJapaneseHeader.readingIndex === 2, "Japanese kana-name headers should normalize");
+assert(fullWidthJapaneseHeader.englishNameIndex === 3, "Japanese romaji-name headers should normalize");
+
+api.state.language = "ja";
+assert(api.t("drawWinnersButton", { count: 3 }) === "3名を抽選", "Japanese dynamic draw labels should interpolate counts");
+api.state.language = "ko";
 
 const csvLine = api.toCsvLine(["Winner", "Yang Min-gyu", "Team, A"]);
 assert(csvLine === "Winner,Yang Min-gyu,\"Team, A\"", "CSV export should quote comma fields");
@@ -215,6 +342,7 @@ assert(api.state.winners.length === 1, "Replacement draw should create one valid
 assert(api.state.absentees.length === 1, "Absent history should remain after replacement draw");
 assert(api.state.winners[0].id !== absentCandidate.id, "Replacement winner should not be the absent participant");
 const exportData = api.getExportData();
+assert(exportData.header.join(",") === "Status,Order,No.,Korean Name,English Name,English Name Source,Extra,Drawn At,Marked Absent At", "Export headers should remain backward compatible");
 assert(exportData.rows.length === 2, "Export should include one winner row and one absent row");
 assert(exportData.rows.some((row) => row[0] === "Winner"), "Export should include Winner status");
 assert(exportData.rows.some((row) => row[0] === "Absent"), "Export should include Absent status");
@@ -312,12 +440,40 @@ async function verifyLocalXlsx() {
   return results;
 }
 
+async function verifyLegacyCsvEncodings() {
+  const originalLanguage = api.state.language;
+  const fixtures = [
+    {
+      language: "ja",
+      base64: "koqRSZTUjYYsjoGWvCyDdIOKg0uDaSyPipGuDQoxMDEsjlKTY5G+mFksg4SDfYNfIINeg42DRSyJY4vGDQo=",
+      expected: "抽選番号,氏名,フリガナ,所属"
+    },
+    {
+      language: "ko",
+      base64: "ufjIoyzAzLinDQoxLLHouc689g0K",
+      expected: "번호,이름"
+    }
+  ];
+
+  for (const fixture of fixtures) {
+    const buffer = Buffer.from(fixture.base64, "base64");
+    const arrayBuffer = bufferToArrayBuffer(buffer);
+    api.state.language = fixture.language;
+    const decoded = await api.readCsvFile({
+      arrayBuffer: async () => arrayBuffer
+    });
+    assert(decoded.includes(fixture.expected), `${fixture.language} legacy CSV encoding should decode correctly`);
+  }
+
+  api.state.language = originalLanguage;
+}
+
 function bufferToArrayBuffer(buffer) {
   return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 }
 
-verifyLocalXlsx()
-  .then((xlsxResults) => {
+Promise.all([verifyLocalXlsx(), verifyLegacyCsvEncodings()])
+  .then(([xlsxResults]) => {
     console.log("Verification passed");
     console.log(`Participants parsed: ${sampleParticipants.length}`);
     if (xlsxResults.length > 0) {
@@ -330,7 +486,7 @@ verifyLocalXlsx()
       console.log("Local XLSX parsed: skipped because no .xlsx file is present");
     }
     console.log(`First display name: ${sampleParticipants[0].englishName} / ${sampleParticipants[0].name}`);
-    console.log("Use cases passed: auto romanization, manual English Name override, XLSX parsing, raffle-number header preference, non-Hangul name passthrough, adjustable draw count, sequential 3-winner draw, simultaneous 3-winner draw, simultaneous 7-winner draw, one-absent-from-3-with-replacement, two-absent-from-7-with-replacements, absent-and-redraw, restore absent, 3-final-winners-after-absent, quoted CSV, export statuses");
+    console.log("Use cases passed: Korean and Japanese romanization, Japanese headers, Shift-JIS and EUC-KR CSV decoding, manual romanized-name override, XLSX parsing, raffle-number header preference, adjustable draw count, sequential and simultaneous draws, absent replacement flows, restore absent, quoted CSV, export statuses");
   })
   .catch((error) => {
     console.error(error);

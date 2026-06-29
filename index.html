@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Raffle Draw</title>
+  <title>행운권 추첨</title>
   <style>
     :root {
       color-scheme: dark;
@@ -32,8 +32,12 @@
       margin: 0;
       background: var(--bg);
       color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif;
       overflow: hidden;
+    }
+
+    html[lang="ja"] body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
     }
 
     button,
@@ -93,6 +97,35 @@
       color: var(--muted);
       font-size: 14px;
       line-height: 1.45;
+    }
+
+    .language-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #111214;
+      padding: 4px;
+    }
+
+    .language-button {
+      min-height: 38px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .language-button:hover {
+      color: var(--ink);
+    }
+
+    .language-button.is-active {
+      background: var(--accent);
+      color: #171511;
     }
 
     .field-label {
@@ -405,6 +438,11 @@
       padding: 0;
     }
 
+    html[lang="ja"] .winner-set.is-single .winner-name,
+    html[lang="ja"] .winner-board > .winner-card .winner-name {
+      font-size: clamp(64px, 9vw, 148px);
+    }
+
     .winner-set.is-batch .winner-number {
       font-size: clamp(22px, 2.6vw, 42px);
     }
@@ -591,97 +629,100 @@
 </head>
 <body>
   <div class="app">
-    <aside class="setup" aria-label="Raffle setup">
+    <aside class="setup" aria-label="추첨 설정" data-i18n-aria="setupAria">
       <h1 class="brand">
         <span class="brand-title">Raffle Draw</span>
-        <span class="brand-subtitle">Load a CSV or XLSX list and press Enter to draw one winner at a time.</span>
+        <span class="brand-subtitle" data-i18n="brandSubtitle">CSV 또는 XLSX 명단을 불러온 뒤 Enter를 눌러 당첨자를 추첨하세요.</span>
       </h1>
 
-      <label class="field-label" for="eventTitleInput">Screen Title</label>
-      <input class="title-input" id="eventTitleInput" type="text" value="Raffle Draw" autocomplete="off">
+      <span class="field-label" data-i18n="languageLabel">언어</span>
+      <div class="language-switch" role="group" aria-label="언어 선택" data-i18n-aria="languageAria">
+        <button class="language-button is-active" type="button" data-language="ko" aria-pressed="true">KOR 한국어</button>
+        <button class="language-button" type="button" data-language="ja" aria-pressed="false">JPN 日本語</button>
+      </div>
 
-      <label class="field-label" for="csvFile">Participant File</label>
+      <label class="field-label" for="eventTitleInput" data-i18n="screenTitleLabel">화면 제목</label>
+      <input class="title-input" id="eventTitleInput" type="text" value="오늘의 추첨" autocomplete="off">
+
+      <label class="field-label" for="csvFile" data-i18n="participantFileLabel">참가자 명단</label>
       <input class="file-input" id="csvFile" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
       <label class="drop-zone" id="dropZone" for="csvFile">
         <span>
-          <strong>Select CSV or XLSX File</strong>
-          Example: 1,양민규<br>
-          Use a list with number and name.
+          <strong data-i18n="selectFile">CSV 또는 XLSX 파일 선택</strong>
+          <span data-i18n="fileExample">예: 1,양민규</span><br>
+          <span data-i18n="fileHelp">번호와 이름이 있는 명단을 사용하세요.</span>
         </span>
       </label>
 
       <div class="stats" aria-live="polite">
         <div class="stat">
-          <span class="stat-label">Total</span>
+          <span class="stat-label" data-i18n="totalLabel">전체</span>
           <span class="stat-value" id="totalCount">0</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Remaining</span>
+          <span class="stat-label" data-i18n="remainingLabel">남은 인원</span>
           <span class="stat-value" id="remainingCount">0</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Winners</span>
+          <span class="stat-label" data-i18n="winnersLabel">당첨</span>
           <span class="stat-value" id="winnerCount">0</span>
         </div>
         <div class="stat">
-          <span class="stat-label">Absent</span>
+          <span class="stat-label" data-i18n="absentLabel">불참</span>
           <span class="stat-value" id="absentCount">0</span>
         </div>
         <div class="stat">
-          <span class="stat-label">File</span>
+          <span class="stat-label" data-i18n="fileLabel">파일</span>
           <span class="stat-value" id="fileState">-</span>
         </div>
       </div>
 
-      <label class="field-label">Winners per Draw</label>
-      <div class="draw-count-control" role="group" aria-label="Winners per draw">
-        <button class="step-button" id="drawCountMinus" type="button" aria-label="Decrease winners per draw">-</button>
-        <input class="draw-count-input" id="drawCountInput" type="number" min="1" max="50" step="1" value="1" inputmode="numeric" aria-label="Winners per draw">
-        <button class="step-button" id="drawCountPlus" type="button" aria-label="Increase winners per draw">+</button>
+      <label class="field-label" data-i18n="winnersPerDrawLabel">한 번에 추첨할 인원</label>
+      <div class="draw-count-control" role="group" aria-label="한 번에 추첨할 인원" data-i18n-aria="winnersPerDrawAria">
+        <button class="step-button" id="drawCountMinus" type="button" aria-label="추첨 인원 줄이기" data-i18n-aria="decreaseDrawCountAria">-</button>
+        <input class="draw-count-input" id="drawCountInput" type="number" min="1" max="50" step="1" value="1" inputmode="numeric" aria-label="한 번에 추첨할 인원" data-i18n-aria="winnersPerDrawAria">
+        <button class="step-button" id="drawCountPlus" type="button" aria-label="추첨 인원 늘리기" data-i18n-aria="increaseDrawCountAria">+</button>
       </div>
 
       <div class="actions">
-        <button class="action-button primary" id="drawButton" type="button">Draw Winner</button>
-        <button class="action-button" id="absentButton" type="button">Mark Current Absent</button>
-        <button class="action-button" id="restoreAbsentButton" type="button">Restore Last Absent</button>
-        <button class="action-button" id="fullscreenButton" type="button">Full Screen</button>
-        <button class="action-button" id="undoButton" type="button">Undo Last Winner</button>
-        <button class="action-button" id="exportButton" type="button">Save Results CSV</button>
-        <button class="action-button danger" id="resetButton" type="button">Restart Draw</button>
+        <button class="action-button primary" id="drawButton" type="button">당첨자 추첨</button>
+        <button class="action-button" id="absentButton" type="button" data-i18n="markAbsentButton">현재 당첨자 불참 처리</button>
+        <button class="action-button" id="restoreAbsentButton" type="button" data-i18n="restoreAbsentButton">최근 불참 되돌리기</button>
+        <button class="action-button" id="fullscreenButton" type="button" data-i18n="fullscreenButton">전체 화면</button>
+        <button class="action-button" id="undoButton" type="button" data-i18n="undoButton">최근 당첨 취소</button>
+        <button class="action-button" id="exportButton" type="button" data-i18n="exportButton">결과 CSV 저장</button>
+        <button class="action-button danger" id="resetButton" type="button" data-i18n="resetButton">추첨 다시 시작</button>
       </div>
 
-      <p class="hint">
-        Press Enter or Space after loading the list. Add an English Name column
-        for verified pronunciation; otherwise the app will auto-generate one.
-      </p>
+      <p class="hint" data-i18n="hint">명단을 불러온 뒤 Enter 또는 Space를 누르세요. 정확한 영문 표기를 위해 English Name 열을 추가하는 것을 권장합니다. 없으면 한글 이름을 자동 변환합니다.</p>
     </aside>
 
-    <main class="stage" aria-label="Raffle stage">
+    <main class="stage" aria-label="추첨 무대" data-i18n-aria="stageAria">
       <header class="stage-header">
-        <div class="event-title" id="eventTitleDisplay">Raffle Draw</div>
-        <div class="status" id="statusMessage">Load a file to begin</div>
+        <div class="event-title" id="eventTitleDisplay">오늘의 추첨</div>
+        <div class="status" id="statusMessage">명단을 불러오세요</div>
       </header>
 
       <section class="winner-board" id="winnerBoard" aria-live="polite" aria-atomic="true">
         <div class="winner-number" id="winnerNumber">No.</div>
-        <div class="winner-name" id="winnerName">Ready</div>
-        <div class="winner-korean" id="winnerKorean">Korean name will appear here</div>
-        <div class="winner-meta" id="winnerMeta">Format: No., Name, optional English Name.</div>
+        <div class="winner-name" id="winnerName">준비 완료</div>
+        <div class="winner-korean" id="winnerKorean">이름이 여기에 표시됩니다</div>
+        <div class="winner-meta" id="winnerMeta">형식: 번호, 이름, 선택 영문 이름</div>
       </section>
 
-      <button class="big-draw" id="bigDrawButton" type="button">Press Enter or Click to Draw</button>
+      <button class="big-draw" id="bigDrawButton" type="button">Enter를 누르거나 클릭하여 추첨</button>
     </main>
 
-    <aside class="history" aria-label="Winner history">
+    <aside class="history" aria-label="당첨자 기록" data-i18n-aria="historyAria">
       <div class="history-header">
-        <h2 class="history-title">Winner History</h2>
+        <h2 class="history-title" data-i18n="winnerHistoryTitle">당첨자 기록</h2>
         <span class="history-count" id="historyCount">0</span>
       </div>
       <ol class="history-list" id="historyList"></ol>
 
       <div class="absent-section">
         <div class="history-header">
-          <h2 class="history-title">Absent</h2>
+          <h2 class="history-title" data-i18n="absentHistoryTitle">불참</h2>
           <span class="history-count" id="absenteeCount">0</span>
         </div>
         <ol class="history-list" id="absenteeList"></ol>
@@ -694,9 +735,200 @@
     const DRAW_DURATION_MS = 500;
     const MIN_DRAW_COUNT = 1;
     const MAX_DRAW_COUNT = 50;
+    const SUPPORTED_LANGUAGES = new Set(["ko", "ja"]);
+    const LANGUAGE_LOCALES = {
+      ko: "ko-KR",
+      ja: "ja-JP"
+    };
+
+    const TRANSLATIONS = {
+      ko: {
+        documentTitle: "행운권 추첨",
+        defaultTitle: "오늘의 추첨",
+        brandSubtitle: "CSV 또는 XLSX 명단을 불러온 뒤 Enter를 눌러 당첨자를 추첨하세요.",
+        languageLabel: "언어",
+        languageAria: "언어 선택",
+        setupAria: "추첨 설정",
+        screenTitleLabel: "화면 제목",
+        participantFileLabel: "참가자 명단",
+        selectFile: "CSV 또는 XLSX 파일 선택",
+        fileExample: "예: 1,양민규",
+        fileHelp: "번호와 이름이 있는 명단을 사용하세요.",
+        totalLabel: "전체",
+        remainingLabel: "남은 인원",
+        winnersLabel: "당첨",
+        absentLabel: "불참",
+        fileLabel: "파일",
+        winnersPerDrawLabel: "한 번에 추첨할 인원",
+        winnersPerDrawAria: "한 번에 추첨할 인원",
+        decreaseDrawCountAria: "추첨 인원 줄이기",
+        increaseDrawCountAria: "추첨 인원 늘리기",
+        markAbsentButton: "현재 당첨자 불참 처리",
+        restoreAbsentButton: "최근 불참 되돌리기",
+        fullscreenButton: "전체 화면",
+        undoButton: "최근 당첨 취소",
+        exportButton: "결과 CSV 저장",
+        resetButton: "추첨 다시 시작",
+        hint: "명단을 불러온 뒤 Enter 또는 Space를 누르세요. 정확한 영문 표기를 위해 English Name 열을 추가하는 것을 권장합니다. 없으면 한글 이름을 자동 변환합니다.",
+        stageAria: "추첨 무대",
+        historyAria: "당첨자 기록",
+        winnerHistoryTitle: "당첨자 기록",
+        absentHistoryTitle: "불참",
+        statusLoadFile: "명단을 불러오세요",
+        statusReadingFile: "파일을 읽는 중",
+        statusNoNames: "참가자 이름을 찾지 못했습니다",
+        statusParticipantsLoaded: "참가자 {count}명을 불러왔습니다",
+        statusCouldNotLoad: "파일을 불러오지 못했습니다",
+        statusLoadFirst: "먼저 명단을 불러오세요",
+        statusAllDrawn: "모든 참가자를 추첨했습니다",
+        statusDrawing: "추첨 중",
+        previewDrawing: "추첨 중…",
+        statusReplacementPending: "{drawn}명 재추첨 완료 · {remaining}명 더 필요",
+        statusWinnersConfirmed: "당첨자 {count}명이 확정되었습니다",
+        statusWinnerConfirmed: "당첨자가 확정되었습니다",
+        statusLastWinnerUndone: "최근 당첨을 취소했습니다",
+        statusNoActiveWinner: "불참 처리할 당첨자가 없습니다",
+        statusMarkedAbsent: "{name} 님을 불참 처리했습니다. {count}명을 재추첨하세요.",
+        statusRestoredAbsent: "{name} 님을 추첨 대상에 다시 포함했습니다",
+        confirmReset: "현재 당첨 기록을 모두 지우고 추첨을 다시 시작할까요?",
+        statusRestarted: "추첨을 다시 시작했습니다",
+        statusNoHistory: "저장할 추첨 기록이 없습니다",
+        statusResultsSaved: "결과 CSV를 저장했습니다",
+        statusRestoredState: "이전 추첨 상태를 복원했습니다",
+        statusLanguageChanged: "한국어로 전환했습니다",
+        statusSingleMode: "1명 추첨 모드",
+        statusMultiMode: "{count}명 동시 추첨 모드",
+        errorLegacyXls: "이전 형식의 .xls 파일은 지원하지 않습니다. .xlsx 또는 .csv로 저장해 주세요.",
+        errorNoWorksheet: "XLSX 파일에서 워크시트를 찾지 못했습니다.",
+        errorInvalidXlsx: "올바른 XLSX 파일이 아닙니다.",
+        errorUnsupportedCompression: "지원하지 않는 XLSX 압축 방식입니다.",
+        errorNoDecompressor: "이 브라우저에서는 XLSX 압축을 풀 수 없습니다. Chrome 또는 Edge를 사용하거나 CSV를 업로드해 주세요.",
+        errorWinnerIndex: "당첨자 번호가 남은 추첨 대상 범위를 벗어났습니다.",
+        cardReady: "준비 완료",
+        cardNamePlaceholder: "이름이 여기에 표시됩니다",
+        cardFormat: "형식: 번호, 이름, 선택 영문 이름",
+        cardReadyNumber: "준비",
+        cardEnter: "Enter",
+        cardPressEnter: "Enter를 눌러 추첨하세요",
+        cardPronunciation: "영문 이름이 먼저 크게 표시됩니다.",
+        cardComplete: "완료",
+        cardAllDone: "추첨 완료",
+        cardNoRemaining: "남은 참가자가 없습니다",
+        cardCompleteSummary: "당첨 {winners}명 · 불참 {absent}명",
+        numberPlaceholder: "No.",
+        numberPrefix: "No. {number}",
+        winnerMeta: "{order}번째 당첨",
+        currentWinnersMeta: "현재 당첨자",
+        winnersMeta: "당첨자 {count}명",
+        absentCardButton: "불참",
+        fileLoaded: "완료",
+        noWinners: "아직 당첨자가 없습니다.",
+        noAbsentees: "불참 처리된 당첨자가 없습니다.",
+        drawWinnerButton: "당첨자 추첨",
+        drawWinnersButton: "{count}명 추첨",
+        drawReplacementButton: "{count}명 재추첨",
+        bigDrawButton: "Enter를 누르거나 클릭하여 추첨",
+        bigDrawWinnersButton: "Enter를 눌러 {count}명 추첨",
+        bigDrawReplacementButton: "Enter를 눌러 {count}명 재추첨",
+        loadFileButton: "명단을 불러오세요",
+        noRemainingButton: "남은 참가자가 없습니다"
+      },
+      ja: {
+        documentTitle: "抽選会",
+        defaultTitle: "抽選会",
+        brandSubtitle: "CSVまたはXLSXの参加者名簿を読み込み、Enterキーを押して抽選します。",
+        languageLabel: "言語",
+        languageAria: "言語を選択",
+        setupAria: "抽選設定",
+        screenTitleLabel: "画面タイトル",
+        participantFileLabel: "参加者名簿",
+        selectFile: "CSVまたはXLSXファイルを選択",
+        fileExample: "例：1,山田太郎",
+        fileHelp: "番号と氏名を含む名簿をご用意ください。",
+        totalLabel: "合計",
+        remainingLabel: "残り",
+        winnersLabel: "当選",
+        absentLabel: "欠席",
+        fileLabel: "ファイル",
+        winnersPerDrawLabel: "1回の当選人数",
+        winnersPerDrawAria: "1回の当選人数",
+        decreaseDrawCountAria: "当選人数を減らす",
+        increaseDrawCountAria: "当選人数を増やす",
+        markAbsentButton: "現在の当選者を欠席扱いにする",
+        restoreAbsentButton: "直前の欠席を元に戻す",
+        fullscreenButton: "全画面表示",
+        undoButton: "直前の当選を取り消す",
+        exportButton: "結果CSVを保存",
+        resetButton: "抽選をやり直す",
+        hint: "名簿を読み込んだ後、EnterまたはSpaceキーを押してください。漢字氏名にはローマ字またはふりがな列の追加を推奨します。かな氏名・ふりがなは自動で英字表記に変換します。",
+        stageAria: "抽選ステージ",
+        historyAria: "当選履歴",
+        winnerHistoryTitle: "当選履歴",
+        absentHistoryTitle: "欠席者",
+        statusLoadFile: "名簿を読み込んでください",
+        statusReadingFile: "ファイルを読み込み中",
+        statusNoNames: "参加者の氏名が見つかりません",
+        statusParticipantsLoaded: "参加者{count}名を読み込みました",
+        statusCouldNotLoad: "ファイルを読み込めませんでした",
+        statusLoadFirst: "先に名簿を読み込んでください",
+        statusAllDrawn: "すべての参加者を抽選しました",
+        statusDrawing: "抽選中",
+        previewDrawing: "抽選中…",
+        statusReplacementPending: "{drawn}名の再抽選完了 · あと{remaining}名必要",
+        statusWinnersConfirmed: "当選者{count}名が確定しました",
+        statusWinnerConfirmed: "当選者が確定しました",
+        statusLastWinnerUndone: "直前の当選を取り消しました",
+        statusNoActiveWinner: "欠席扱いにする当選者がいません",
+        statusMarkedAbsent: "{name}さんを欠席扱いにしました。{count}名を再抽選してください。",
+        statusRestoredAbsent: "{name}さんを抽選対象に戻しました",
+        confirmReset: "現在の当選履歴をすべて消去して、抽選をやり直しますか？",
+        statusRestarted: "抽選をやり直しました",
+        statusNoHistory: "保存する抽選履歴がありません",
+        statusResultsSaved: "結果CSVを保存しました",
+        statusRestoredState: "前回の抽選状態を復元しました",
+        statusLanguageChanged: "日本語に切り替えました",
+        statusSingleMode: "1名抽選モード",
+        statusMultiMode: "{count}名同時抽選モード",
+        errorLegacyXls: "旧形式の.xlsファイルには対応していません。.xlsxまたは.csv形式で保存してください。",
+        errorNoWorksheet: "XLSXファイルにワークシートが見つかりません。",
+        errorInvalidXlsx: "有効なXLSXファイルではありません。",
+        errorUnsupportedCompression: "このXLSX圧縮方式には対応していません。",
+        errorNoDecompressor: "このブラウザではXLSXを展開できません。ChromeまたはEdgeを使用するか、CSVをアップロードしてください。",
+        errorWinnerIndex: "当選者の番号が残りの抽選対象範囲外です。",
+        cardReady: "準備完了",
+        cardNamePlaceholder: "氏名がここに表示されます",
+        cardFormat: "形式：番号、氏名、任意のローマ字表記",
+        cardReadyNumber: "準備",
+        cardEnter: "Enter",
+        cardPressEnter: "Enterキーを押して抽選",
+        cardPronunciation: "英字表記を大きく表示します。",
+        cardComplete: "完了",
+        cardAllDone: "抽選終了",
+        cardNoRemaining: "残りの参加者はいません",
+        cardCompleteSummary: "当選{winners}名 · 欠席{absent}名",
+        numberPlaceholder: "抽選番号",
+        numberPrefix: "抽選番号 {number}",
+        winnerMeta: "当選 #{order}",
+        currentWinnersMeta: "現在の当選者",
+        winnersMeta: "当選者{count}名",
+        absentCardButton: "欠席",
+        fileLoaded: "読込済",
+        noWinners: "まだ当選者はいません。",
+        noAbsentees: "欠席扱いの当選者はいません。",
+        drawWinnerButton: "1名を抽選",
+        drawWinnersButton: "{count}名を抽選",
+        drawReplacementButton: "{count}名を再抽選",
+        bigDrawButton: "Enterキーを押すかクリックして抽選",
+        bigDrawWinnersButton: "Enterキーを押して{count}名を抽選",
+        bigDrawReplacementButton: "Enterキーを押して{count}名を再抽選",
+        loadFileButton: "名簿を読み込んでください",
+        noRemainingButton: "残りの参加者はいません"
+      }
+    };
 
     const state = {
-      title: "Raffle Draw",
+      language: "ko",
+      title: "오늘의 추첨",
       sourceName: "",
       participants: [],
       remaining: [],
@@ -739,8 +971,70 @@
       historyCount: document.getElementById("historyCount"),
       historyList: document.getElementById("historyList"),
       absenteeCount: document.getElementById("absenteeCount"),
-      absenteeList: document.getElementById("absenteeList")
+      absenteeList: document.getElementById("absenteeList"),
+      languageButtons: Array.from(document.querySelectorAll("[data-language]"))
     };
+
+    function t(key, values = {}) {
+      const language = SUPPORTED_LANGUAGES.has(state.language) ? state.language : "ko";
+      const template = TRANSLATIONS[language][key] ?? TRANSLATIONS.ko[key] ?? key;
+      return Object.entries(values).reduce((text, [name, value]) => {
+        return text.replaceAll(`{${name}}`, String(value));
+      }, template);
+    }
+
+    function formatCount(value) {
+      const locale = LANGUAGE_LOCALES[state.language] || LANGUAGE_LOCALES.ko;
+      return Number(value).toLocaleString(locale);
+    }
+
+    function applyTranslations() {
+      document.documentElement.lang = state.language;
+      document.title = t("documentTitle");
+
+      document.querySelectorAll("[data-i18n]").forEach((node) => {
+        const key = node.dataset?.i18n;
+        if (key) {
+          node.textContent = t(key);
+        }
+      });
+
+      document.querySelectorAll("[data-i18n-aria]").forEach((node) => {
+        const key = node.dataset?.i18nAria;
+        if (key) {
+          node.setAttribute("aria-label", t(key));
+        }
+      });
+
+      elements.languageButtons.forEach((button) => {
+        const isActive = button.dataset.language === state.language;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+    }
+
+    function isDefaultTitle(title) {
+      const cleanTitle = cleanCell(title);
+      return !cleanTitle || cleanTitle === "Raffle Draw" || Object.values(TRANSLATIONS).some((messages) => cleanTitle === messages.defaultTitle);
+    }
+
+    function setLanguage(language) {
+      if (!SUPPORTED_LANGUAGES.has(language) || language === state.language || state.spinning) {
+        return;
+      }
+
+      const useTranslatedDefaultTitle = isDefaultTitle(state.title);
+      state.language = language;
+
+      if (useTranslatedDefaultTitle) {
+        state.title = t("defaultTitle");
+      }
+
+      applyTranslations();
+      saveState();
+      render();
+      setStatus(t("statusLanguageChanged"));
+    }
 
     const HANGUL_START = 0xac00;
     const HANGUL_END = 0xd7a3;
@@ -828,6 +1122,45 @@
       ["은", "Eun"],
       ["편", "Pyeon"]
     ]);
+    const KANA_ROMAJI = Object.freeze({
+      "あ": "a", "い": "i", "う": "u", "え": "e", "お": "o",
+      "か": "ka", "き": "ki", "く": "ku", "け": "ke", "こ": "ko",
+      "さ": "sa", "し": "shi", "す": "su", "せ": "se", "そ": "so",
+      "た": "ta", "ち": "chi", "つ": "tsu", "て": "te", "と": "to",
+      "な": "na", "に": "ni", "ぬ": "nu", "ね": "ne", "の": "no",
+      "は": "ha", "ひ": "hi", "ふ": "fu", "へ": "he", "ほ": "ho",
+      "ま": "ma", "み": "mi", "む": "mu", "め": "me", "も": "mo",
+      "や": "ya", "ゆ": "yu", "よ": "yo",
+      "ら": "ra", "り": "ri", "る": "ru", "れ": "re", "ろ": "ro",
+      "わ": "wa", "ゐ": "i", "ゑ": "e", "を": "o", "ん": "n",
+      "が": "ga", "ぎ": "gi", "ぐ": "gu", "げ": "ge", "ご": "go",
+      "ざ": "za", "じ": "ji", "ず": "zu", "ぜ": "ze", "ぞ": "zo",
+      "だ": "da", "ぢ": "ji", "づ": "zu", "で": "de", "ど": "do",
+      "ば": "ba", "び": "bi", "ぶ": "bu", "べ": "be", "ぼ": "bo",
+      "ぱ": "pa", "ぴ": "pi", "ぷ": "pu", "ぺ": "pe", "ぽ": "po",
+      "ゔ": "vu", "ぁ": "a", "ぃ": "i", "ぅ": "u", "ぇ": "e", "ぉ": "o",
+      "ゃ": "ya", "ゅ": "yu", "ょ": "yo", "ゎ": "wa",
+      "きゃ": "kya", "きゅ": "kyu", "きょ": "kyo",
+      "しゃ": "sha", "しゅ": "shu", "しょ": "sho",
+      "ちゃ": "cha", "ちゅ": "chu", "ちょ": "cho",
+      "にゃ": "nya", "にゅ": "nyu", "にょ": "nyo",
+      "ひゃ": "hya", "ひゅ": "hyu", "ひょ": "hyo",
+      "みゃ": "mya", "みゅ": "myu", "みょ": "myo",
+      "りゃ": "rya", "りゅ": "ryu", "りょ": "ryo",
+      "ぎゃ": "gya", "ぎゅ": "gyu", "ぎょ": "gyo",
+      "じゃ": "ja", "じゅ": "ju", "じょ": "jo",
+      "びゃ": "bya", "びゅ": "byu", "びょ": "byo",
+      "ぴゃ": "pya", "ぴゅ": "pyu", "ぴょ": "pyo",
+      "いぇ": "ye", "うぃ": "wi", "うぇ": "we", "うぉ": "wo",
+      "しぇ": "she", "じぇ": "je", "ちぇ": "che",
+      "てぃ": "ti", "でぃ": "di", "てゅ": "tyu", "でゅ": "dyu",
+      "とぅ": "tu", "どぅ": "du",
+      "ふぁ": "fa", "ふぃ": "fi", "ふぇ": "fe", "ふぉ": "fo", "ふゅ": "fyu",
+      "ゔぁ": "va", "ゔぃ": "vi", "ゔぇ": "ve", "ゔぉ": "vo", "ゔゅ": "vyu",
+      "くぁ": "kwa", "くぃ": "kwi", "くぇ": "kwe", "くぉ": "kwo",
+      "ぐぁ": "gwa", "ぐぃ": "gwi", "ぐぇ": "gwe", "ぐぉ": "gwo",
+      "つぁ": "tsa", "つぃ": "tsi", "つぇ": "tse", "つぉ": "tso"
+    });
 
     function parseCsv(text) {
       const rows = [];
@@ -883,10 +1216,13 @@
     }
 
     function looksLikeHeader(row) {
-      const text = row.join(" ").toLowerCase();
-      const hasNumber = /순번|번호|추첨|행운권|no\.?|number|ticket|raffle|draw|id|idx/.test(text);
-      const hasName = /이름|성명|korean\s*name|name/.test(text);
-      return hasNumber && hasName;
+      const normalizedCells = row.map((cell) => cleanCell(cell).normalize("NFKC").toLowerCase());
+      const text = normalizedCells.join(" ");
+      const hasNumber = /순번|번호|추첨|행운권|抽選|くじ|整理番号|受付番号|応募番号|エントリー番号|no\.?|number|ticket|raffle|draw|index|id|idx/.test(text);
+      const hasName = /이름|성명|氏名|姓名|名前|お名前|参加者名|応募者名|申込者名|korean\s*name|japanese\s*name|name/.test(text);
+      const hasExactNameHeader = normalizedCells.some((cell) => /^(name|full\s*name|korean\s*name|japanese\s*name|이름|성명|氏名(?:\((漢字|日本語)\))?|姓名|名前(?:\((漢字|日本語)\))?|お名前|参加者名|応募者名|申込者名|漢字氏名|氏名漢字|日本語氏名)$/.test(cell));
+      const hasReadingOrDetails = /영문|로마자|발음|ローマ字|英字|ふりがな|フリガナ|よみがな|読み|소속|부서|회사|所属|部署|部門|会社|affiliation|department|company/.test(text);
+      return hasExactNameHeader || (hasName && (hasNumber || hasReadingOrDetails));
     }
 
     function normalizeParticipants(rows) {
@@ -901,12 +1237,14 @@
         let number = row.length >= 2 ? first : String(index + 1);
         let name = row.length >= 2 ? second : first;
         let providedEnglishName = "";
+        let providedReading = "";
         let extra = "";
 
         if (hasHeader) {
           number = cleanCell(row[headerInfo.numberIndex]) || String(index + 1);
           name = cleanCell(row[headerInfo.nameIndex]);
           providedEnglishName = headerInfo.englishNameIndex >= 0 ? cleanCell(row[headerInfo.englishNameIndex]) : "";
+          providedReading = headerInfo.readingIndex >= 0 ? cleanCell(row[headerInfo.readingIndex]) : "";
           extra = row
             .filter((_, columnIndex) => !headerInfo.usedIndexes.has(columnIndex))
             .map(cleanCell)
@@ -914,6 +1252,9 @@
             .join(" / ");
         } else if (row.length >= 3 && isLikelyManualEnglishName(row[2])) {
           providedEnglishName = cleanCell(row[2]);
+          extra = row.slice(3).map(cleanCell).filter(Boolean).join(" / ");
+        } else if (row.length >= 3 && isLikelyJapaneseReading(row[2])) {
+          providedReading = cleanCell(row[2]);
           extra = row.slice(3).map(cleanCell).filter(Boolean).join(" / ");
         } else {
           extra = row.slice(2).map(cleanCell).filter(Boolean).join(" / ");
@@ -923,14 +1264,15 @@
           return;
         }
 
-        const englishName = providedEnglishName || romanizeKoreanName(name);
+        const englishName = providedEnglishName || romanizeParticipantName(name, providedReading);
 
         participants.push({
           id: `${index + 1}-${number}-${name}`,
           number: number || String(index + 1),
           name,
           englishName,
-          englishNameSource: providedEnglishName ? "provided" : "auto",
+          englishNameSource: getNameSource(name, providedEnglishName, providedReading),
+          reading: providedReading,
           extra
         });
       });
@@ -939,41 +1281,67 @@
     }
 
     function getHeaderInfo(header) {
-      const normalized = header.map((cell) => cleanCell(cell).toLowerCase());
+      const normalized = header.map((cell) => cleanCell(cell).normalize("NFKC").toLowerCase());
       const raffleNumberIndex = findHeaderIndex(normalized, [
         /행운권.*(번호|no)/,
         /추첨.*(번호|no)/,
+        /抽選.*(番号|no)/,
+        /くじ.*(番号|no)/,
+        /ラッフル/,
+        /チケット.*(番号|no)/,
         /raffle/,
         /ticket/,
         /draw\s*(no|number)/
       ], -1);
       const numberIndex = raffleNumberIndex >= 0 ? raffleNumberIndex : findHeaderIndex(normalized, [
-        /^(no|no\.|number|id|participant\s*no|participant\s*id|순번|번호)$/
-      ], 0);
+        /^(no|no\.|number|id|idx|index|participant\s*no|participant\s*id|순번|번호|連番|通し番号|整理番号|受付番号|参加者番号|応募番号|エントリー番号|管理番号)$/
+      ], -1);
       const englishNameIndex = findHeaderIndex(normalized, [
         /english\s*name/,
+        /英語.*(名|氏名)/,
+        /英字.*(名|氏名|表記)/,
+        /英文氏名/,
+        /ローマ字/,
+        /アルファベット.*(氏名|表記)/,
+        /romaji/,
+        /latin\s*name/,
         /roman/,
         /pronunciation/,
-        /reading/,
         /영문/,
         /로마자/,
         /발음/
       ], -1);
+      const readingIndex = findHeaderIndex(normalized, [
+        /ふりがな/,
+        /フリガナ/,
+        /よみがな/,
+        /ヨミガナ/,
+        /読み(方|仮名)?/,
+        /氏名.*(かな|カナ)/,
+        /^(かな|カナ|reading)$/
+      ], -1, new Set([englishNameIndex]));
       const nameIndex = findHeaderIndex(normalized, [
         /korean\s*name/,
+        /japanese\s*name/,
         /participant\s*name/,
-        /^(name|full\s*name|이름|성명)$/
-      ], numberIndex === 0 ? 1 : 0, new Set([englishNameIndex]));
+        /参加者.*(氏名|名前)/,
+        /^(name|full\s*name|이름|성명|氏名(?:\((漢字|日本語)\))?|姓名|名前(?:\((漢字|日本語)\))?|お名前|参加者名|応募者名|申込者名|漢字氏名|氏名漢字|日本語氏名)$/
+      ], numberIndex === 0 ? 1 : 0, new Set([englishNameIndex, readingIndex]));
       const usedIndexes = new Set([numberIndex, nameIndex]);
 
       if (englishNameIndex >= 0) {
         usedIndexes.add(englishNameIndex);
       }
 
+      if (readingIndex >= 0) {
+        usedIndexes.add(readingIndex);
+      }
+
       return {
         numberIndex,
         nameIndex,
         englishNameIndex,
+        readingIndex,
         usedIndexes
       };
     }
@@ -996,6 +1364,28 @@
     function isLikelyManualEnglishName(value) {
       const text = cleanCell(value);
       return /^[A-Za-z][A-Za-z .'-]+$/.test(text) && /[\s-]/.test(text);
+    }
+
+    function isLikelyJapaneseReading(value) {
+      const text = cleanCell(value).normalize("NFKC");
+      return text.length > 0 && /^[\u3040-\u30ff\u31f0-\u31ffー・\s]+$/.test(text);
+    }
+
+    function getNameSource(name, providedEnglishName, providedReading) {
+      if (providedEnglishName) {
+        return "provided";
+      }
+
+      if (providedReading) {
+        return "kana";
+      }
+
+      const cleanName = cleanCell(name);
+      if (Array.from(cleanName).some(isHangulSyllable) || isLikelyJapaneseReading(cleanName)) {
+        return "auto";
+      }
+
+      return "original";
     }
 
     function romanizeKoreanName(name) {
@@ -1038,19 +1428,154 @@
       return text ? `${text[0].toUpperCase()}${text.slice(1)}` : "";
     }
 
-    async function readCsvFile(file) {
-      const buffer = await file.arrayBuffer();
-      let text = new TextDecoder("utf-8").decode(buffer);
+    function containsJapaneseKana(value) {
+      return /[\u3040-\u30ff\u31f0-\u31ffー]/.test(cleanCell(value).normalize("NFKC"));
+    }
 
-      if (text.includes("\uFFFD")) {
-        try {
-          text = new TextDecoder("euc-kr").decode(buffer);
-        } catch (error) {
-          console.warn("EUC-KR decode failed, keeping UTF-8 result.", error);
-        }
+    function katakanaToHiragana(value) {
+      return Array.from(cleanCell(value).normalize("NFKC")).map((char) => {
+        const code = char.charCodeAt(0);
+        return code >= 0x30a1 && code <= 0x30f6 ? String.fromCharCode(code - 0x60) : char;
+      }).join("");
+    }
+
+    function getKanaSyllable(text, index) {
+      const pair = text.slice(index, index + 2);
+      if (KANA_ROMAJI[pair]) {
+        return { value: KANA_ROMAJI[pair], length: 2 };
       }
 
-      return text;
+      const single = KANA_ROMAJI[text[index]];
+      return single ? { value: single, length: 1 } : null;
+    }
+
+    function romanizeJapaneseKana(value) {
+      const text = katakanaToHiragana(value);
+      if (!/^[\u3040-\u309fー・\s]+$/.test(text)) {
+        return cleanCell(value);
+      }
+
+      let result = "";
+      let geminateNext = false;
+
+      for (let index = 0; index < text.length;) {
+        const char = text[index];
+
+        if (/\s/.test(char) || char === "・") {
+          result += " ";
+          geminateNext = false;
+          index += 1;
+          continue;
+        }
+
+        if (char === "っ") {
+          geminateNext = true;
+          index += 1;
+          continue;
+        }
+
+        if (char === "ー") {
+          const lastVowel = result.match(/[aeiou](?!.*[aeiou])/i)?.[0] || "";
+          result += lastVowel.toLowerCase();
+          index += 1;
+          continue;
+        }
+
+        const syllable = getKanaSyllable(text, index);
+
+        if (!syllable) {
+          result += char;
+          geminateNext = false;
+          index += 1;
+          continue;
+        }
+
+        let romanized = syllable.value;
+
+        if (char === "ん") {
+          const next = getKanaSyllable(text, index + syllable.length)?.value || "";
+          romanized = /^[aeiouy]/.test(next) ? "n'" : "n";
+        }
+
+        if (geminateNext) {
+          const prefix = romanized.startsWith("ch") ? "t" : romanized.match(/^[bcdfghjklmnpqrstvwxyz]/)?.[0] || "";
+          romanized = `${prefix}${romanized}`;
+          geminateNext = false;
+        }
+
+        result += romanized;
+        index += syllable.length;
+      }
+
+      return result
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .map(capitalize)
+        .join(" ");
+    }
+
+    function romanizeParticipantName(name, reading = "") {
+      const cleanName = cleanCell(name);
+      const cleanReading = cleanCell(reading);
+
+      if (cleanReading) {
+        return containsJapaneseKana(cleanReading) ? romanizeJapaneseKana(cleanReading) : cleanReading;
+      }
+
+      if (Array.from(cleanName).some(isHangulSyllable)) {
+        return romanizeKoreanName(cleanName);
+      }
+
+      if (containsJapaneseKana(cleanName) && /^[\u3040-\u30ff\u31f0-\u31ffー・\s]+$/.test(cleanName.normalize("NFKC"))) {
+        return romanizeJapaneseKana(cleanName);
+      }
+
+      return cleanName || "Unknown";
+    }
+
+    async function readCsvFile(file) {
+      const buffer = await file.arrayBuffer();
+      try {
+        return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+      } catch (utf8Error) {
+        const fallbackEncodings = state.language === "ja" ? ["shift_jis", "euc-kr"] : ["euc-kr", "shift_jis"];
+        const candidates = [];
+
+        for (const encoding of fallbackEncodings) {
+          try {
+            const text = new TextDecoder(encoding, { fatal: true }).decode(buffer);
+            candidates.push({ encoding, text, score: scoreDecodedCsv(text, encoding) });
+          } catch {
+            // Trying both legacy encodings is expected; invalid candidates are ignored.
+          }
+        }
+
+        if (candidates.length > 0) {
+          candidates.sort((left, right) => right.score - left.score);
+          return candidates[0].text;
+        }
+
+        return new TextDecoder("utf-8").decode(buffer);
+      }
+    }
+
+    function scoreDecodedCsv(text, encoding) {
+      const normalized = cleanCell(text).normalize("NFKC");
+      const koreanHeaders = normalized.match(/번호|순번|추첨|행운권|이름|성명|소속|영문|로마자/g)?.length || 0;
+      const japaneseHeaders = normalized.match(/番号|抽選|くじ|氏名|名前|所属|ローマ字|フリガナ|ふりがな|よみがな/g)?.length || 0;
+      const hangulCount = normalized.match(/[가-힣]/g)?.length || 0;
+      const kanaCount = normalized.match(/[\u3040-\u30ff]/g)?.length || 0;
+      const controlCount = normalized.match(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g)?.length || 0;
+      let score = (koreanHeaders + japaneseHeaders) * 30 + (hangulCount + kanaCount) * 0.5 - controlCount * 20;
+
+      if (state.language === "ja") {
+        score += japaneseHeaders * 20 + kanaCount * 0.25 + (encoding === "shift_jis" ? 1 : 0);
+      } else {
+        score += koreanHeaders * 20 + hangulCount * 0.25 + (encoding === "euc-kr" ? 1 : 0);
+      }
+
+      return score;
     }
 
     async function readParticipantRows(file) {
@@ -1061,7 +1586,7 @@
       }
 
       if (lowerName.endsWith(".xls")) {
-        throw new Error("Legacy .xls files are not supported. Please save the list as .xlsx or .csv.");
+        throw new Error(t("errorLegacyXls"));
       }
 
       return parseCsv(await readCsvFile(file));
@@ -1073,7 +1598,7 @@
       const worksheetName = getFirstWorksheetName(entries);
 
       if (!worksheetName) {
-        throw new Error("No worksheet found in the XLSX file.");
+        throw new Error(t("errorNoWorksheet"));
       }
 
       const sharedStrings = sharedStringsEntry
@@ -1092,7 +1617,7 @@
 
       for (let index = 0; index < entryCount; index += 1) {
         if (view.getUint32(offset, true) !== 0x02014b50) {
-          throw new Error("Invalid XLSX central directory.");
+          throw new Error(t("errorInvalidXlsx"));
         }
 
         const method = view.getUint16(offset + 10, true);
@@ -1104,7 +1629,7 @@
         const fileName = new TextDecoder("utf-8").decode(new Uint8Array(buffer, offset + 46, fileNameLength));
 
         if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) {
-          throw new Error("Invalid XLSX local file header.");
+          throw new Error(t("errorInvalidXlsx"));
         }
 
         const localFileNameLength = view.getUint16(localHeaderOffset + 26, true);
@@ -1132,7 +1657,7 @@
         }
       }
 
-      throw new Error("Invalid XLSX file.");
+      throw new Error(t("errorInvalidXlsx"));
     }
 
     function getFirstWorksheetName(entries) {
@@ -1158,7 +1683,7 @@
       }
 
       if (entry.method !== 8) {
-        throw new Error("Unsupported XLSX compression method.");
+        throw new Error(t("errorUnsupportedCompression"));
       }
 
       return inflateRaw(compressed);
@@ -1166,7 +1691,7 @@
 
     async function inflateRaw(buffer) {
       if (typeof DecompressionStream === "undefined") {
-        throw new Error("This browser cannot decompress XLSX files. Please use Chrome, Edge, or upload CSV.");
+        throw new Error(t("errorNoDecompressor"));
       }
 
       try {
@@ -1280,11 +1805,11 @@
       }
 
       try {
-        setStatus("Reading file");
+        setStatus(t("statusReadingFile"));
         const participants = normalizeParticipants(await readParticipantRows(file));
 
         if (participants.length === 0) {
-          setStatus("No participant names found");
+          setStatus(t("statusNoNames"));
           return;
         }
 
@@ -1299,10 +1824,10 @@
 
         saveState();
         render();
-        setStatus(`${participants.length.toLocaleString("en-US")} participants loaded`);
+        setStatus(t("statusParticipantsLoaded", { count: formatCount(participants.length) }));
       } catch (error) {
         console.error(error);
-        setStatus(error.message || "Could not load file");
+        setStatus(error.message || t("statusCouldNotLoad"));
       }
     }
 
@@ -1312,20 +1837,20 @@
       }
 
       if (state.remaining.length === 0) {
-        setStatus(state.participants.length === 0 ? "Load a file first" : "All participants have been drawn");
+        setStatus(state.participants.length === 0 ? t("statusLoadFirst") : t("statusAllDrawn"));
         return;
       }
 
       state.spinning = true;
       elements.winnerBoard.classList.add("is-spinning");
       setControlsDisabled(true);
-      setStatus("Drawing");
+      setStatus(t("statusDrawing"));
 
       const startedAt = Date.now();
       const duration = DRAW_DURATION_MS;
       const drawCount = getNextDrawCount();
       const shuffleTimer = window.setInterval(() => {
-        displayWinnerBatch(getPreviewBatch(drawCount), "Drawing...");
+        displayWinnerBatch(getPreviewBatch(drawCount), t("previewDrawing"));
       }, 64);
 
       window.setTimeout(() => {
@@ -1368,7 +1893,7 @@
 
     function recordSingleWinnerFromIndex(winnerIndex, drawnAt) {
       if (winnerIndex < 0 || winnerIndex >= state.remaining.length) {
-        throw new Error("Winner index is outside the remaining participant pool.");
+        throw new Error(t("errorWinnerIndex"));
       }
 
       const winner = state.remaining.splice(winnerIndex, 1)[0];
@@ -1419,22 +1944,22 @@
 
     function getWinnerBatchMeta(winners) {
       if (winners.length === 1) {
-        return `Winner #${state.winners.length}`;
+        return t("winnerMeta", { order: state.winners.length });
       }
 
-      return `${winners.length} Winners`;
+      return t("winnersMeta", { count: winners.length });
     }
 
     function getDrawCompleteStatus(winners) {
       if (state.pendingReplacementCount > 0) {
-        return `${winners.length} replacement drawn · ${state.pendingReplacementCount} still needed`;
+        return t("statusReplacementPending", { drawn: winners.length, remaining: state.pendingReplacementCount });
       }
 
       if (state.remaining.length === 0) {
-        return "All participants have been drawn";
+        return t("statusAllDrawn");
       }
 
-      return winners.length > 1 ? `${winners.length} winners confirmed` : "Winner confirmed";
+      return winners.length > 1 ? t("statusWinnersConfirmed", { count: winners.length }) : t("statusWinnerConfirmed");
     }
 
     function secureRandomIndex(max) {
@@ -1472,7 +1997,7 @@
       state.current = state.winners.length > 0 ? state.winners[state.winners.length - 1] : null;
       saveState();
       render();
-      setStatus("Last winner undone");
+      setStatus(t("statusLastWinnerUndone"));
     }
 
     function markCurrentAbsent() {
@@ -1491,7 +2016,7 @@
       const winnerIndex = state.winners.findIndex((winner) => winner.id === winnerId);
 
       if (winnerIndex < 0) {
-        setStatus("No active winner to mark absent");
+        setStatus(t("statusNoActiveWinner"));
         return;
       }
 
@@ -1509,7 +2034,7 @@
 
       saveState();
       render();
-      setStatus(`${getWinnerEnglishName(absent)} marked absent. Draw ${state.pendingReplacementCount} replacement${state.pendingReplacementCount === 1 ? "" : "s"}.`);
+      setStatus(t("statusMarkedAbsent", { name: getWinnerEnglishName(absent), count: state.pendingReplacementCount }));
     }
 
     function restoreLastAbsent() {
@@ -1532,7 +2057,7 @@
       state.pendingReplacementCount = Math.max(0, state.pendingReplacementCount - 1);
       saveState();
       render();
-      setStatus(`${getWinnerEnglishName(restored)} restored to the draw pool`);
+      setStatus(t("statusRestoredAbsent", { name: getWinnerEnglishName(restored) }));
     }
 
     function renumberWinners() {
@@ -1552,7 +2077,7 @@
         return;
       }
 
-      const confirmed = window.confirm("Clear the current winner history and restart this draw?");
+      const confirmed = window.confirm(t("confirmReset"));
       if (!confirmed) {
         return;
       }
@@ -1565,12 +2090,12 @@
       state.pendingReplacementCount = 0;
       saveState();
       render();
-      setStatus("Draw restarted");
+      setStatus(t("statusRestarted"));
     }
 
     function exportWinners() {
       if (state.winners.length === 0 && state.absentees.length === 0) {
-        setStatus("No draw history to save");
+        setStatus(t("statusNoHistory"));
         return;
       }
 
@@ -1587,7 +2112,7 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setStatus("Results CSV saved");
+      setStatus(t("statusResultsSaved"));
     }
 
     function getExportData() {
@@ -1648,10 +2173,10 @@
 
       if (winners.length === 0) {
         elements.winnerBoard.appendChild(createWinnerCard({
-          number: "No.",
-          englishName: "Ready",
-          koreanName: "Korean name will appear here",
-          meta: "Format: No., Name, optional English Name."
+          number: t("numberPlaceholder"),
+          englishName: t("cardReady"),
+          originalName: t("cardNamePlaceholder"),
+          meta: t("cardFormat")
         }));
         return;
       }
@@ -1661,9 +2186,9 @@
 
       winners.forEach((winner) => {
         set.appendChild(createWinnerCard({
-          number: winner.isStatus ? winner.number : `No. ${winner.number}`,
+          number: winner.isStatus ? winner.number : t("numberPrefix", { number: winner.number }),
           englishName: getWinnerEnglishName(winner),
-          koreanName: winner.name,
+          originalName: winner.name,
           meta: winner.isStatus ? winner.extra : (winner.extra ? `${meta} · ${winner.extra}` : meta),
           winnerId: winner.id,
           showAbsentAction: winner.isStatus ? false : (options.showAbsentAction ?? state.winners.some((item) => item.id === winner.id))
@@ -1673,7 +2198,7 @@
       elements.winnerBoard.appendChild(set);
     }
 
-    function createWinnerCard({ number, englishName, koreanName, meta, winnerId, showAbsentAction = false }) {
+    function createWinnerCard({ number, englishName, originalName, meta, winnerId, showAbsentAction = false }) {
       const card = document.createElement("article");
       card.className = "winner-card";
 
@@ -1685,22 +2210,26 @@
       nameNode.className = "winner-name";
       nameNode.textContent = englishName;
 
-      const koreanNode = document.createElement("div");
-      koreanNode.className = "winner-korean";
-      koreanNode.textContent = koreanName;
+      const originalNode = document.createElement("div");
+      originalNode.className = "winner-korean";
+      originalNode.textContent = originalName;
 
       const metaNode = document.createElement("div");
       metaNode.className = "winner-meta";
       metaNode.textContent = meta;
 
-      card.append(numberNode, nameNode, koreanNode, metaNode);
+      card.append(numberNode, nameNode);
+      if (cleanCell(originalName) && cleanCell(originalName) !== cleanCell(englishName)) {
+        card.appendChild(originalNode);
+      }
+      card.appendChild(metaNode);
 
       if (showAbsentAction && winnerId) {
         const absentButton = document.createElement("button");
         absentButton.className = "absent-current-button";
         absentButton.type = "button";
         absentButton.dataset.absentId = winnerId;
-        absentButton.textContent = "Absent";
+        absentButton.textContent = t("absentCardButton");
         card.appendChild(absentButton);
       }
 
@@ -1708,35 +2237,35 @@
     }
 
     function getWinnerEnglishName(winner) {
-      return winner.englishName || romanizeKoreanName(winner.name);
+      return winner.englishName || romanizeParticipantName(winner.name, winner.reading);
     }
 
     function render() {
       elements.eventTitleInput.value = state.title;
-      elements.eventTitleDisplay.textContent = state.title || "Raffle Draw";
+      elements.eventTitleDisplay.textContent = state.title || t("defaultTitle");
 
       const activeBatch = getActiveCurrentBatch();
 
       if (activeBatch.length > 0) {
         const order = activeBatch.length === 1 ? state.winners.find((winner) => winner.id === activeBatch[0].id)?.drawOrder : null;
-        displayWinnerBatch(activeBatch, order ? `Winner #${order}` : "Current Winners");
+        displayWinnerBatch(activeBatch, order ? t("winnerMeta", { order }) : t("currentWinnersMeta"));
       } else if (state.participants.length > 0 && state.remaining.length > 0) {
         displayWinnerBatch([{
           id: "",
           isStatus: true,
-          number: "Ready",
-          englishName: state.pendingReplacementCount > 0 ? `Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}` : "Enter",
-          name: "Press Enter to draw",
-          extra: "The English pronunciation will be shown first."
+          number: t("cardReadyNumber"),
+          englishName: state.pendingReplacementCount > 0 ? t("drawReplacementButton", { count: state.pendingReplacementCount }) : t("cardEnter"),
+          name: t("cardPressEnter"),
+          extra: t("cardPronunciation")
         }], "", { showAbsentAction: false });
       } else if (state.participants.length > 0) {
         displayWinnerBatch([{
           id: "",
           isStatus: true,
-          number: "Complete",
-          englishName: "All Done",
-          name: "No participants remaining",
-          extra: `${state.winners.length} winners · ${state.absentees.length} absent`
+          number: t("cardComplete"),
+          englishName: t("cardAllDone"),
+          name: t("cardNoRemaining"),
+          extra: t("cardCompleteSummary", { winners: state.winners.length, absent: state.absentees.length })
         }], "", { showAbsentAction: false });
       } else {
         displayWinner(null);
@@ -1746,13 +2275,13 @@
     }
 
     function renderCountsAndHistory() {
-      elements.totalCount.textContent = state.participants.length.toLocaleString("en-US");
-      elements.remainingCount.textContent = state.remaining.length.toLocaleString("en-US");
-      elements.winnerCount.textContent = state.winners.length.toLocaleString("en-US");
-      elements.absentCount.textContent = state.absentees.length.toLocaleString("en-US");
-      elements.fileState.textContent = state.sourceName ? "Loaded" : "-";
-      elements.historyCount.textContent = state.winners.length.toLocaleString("en-US");
-      elements.absenteeCount.textContent = state.absentees.length.toLocaleString("en-US");
+      elements.totalCount.textContent = formatCount(state.participants.length);
+      elements.remainingCount.textContent = formatCount(state.remaining.length);
+      elements.winnerCount.textContent = formatCount(state.winners.length);
+      elements.absentCount.textContent = formatCount(state.absentees.length);
+      elements.fileState.textContent = state.sourceName ? t("fileLoaded") : "-";
+      elements.historyCount.textContent = formatCount(state.winners.length);
+      elements.absenteeCount.textContent = formatCount(state.absentees.length);
 
       const canDraw = state.participants.length > 0 && state.remaining.length > 0 && !state.spinning;
       const activeBatch = getActiveCurrentBatch();
@@ -1765,7 +2294,7 @@
       elements.resetButton.disabled = state.participants.length === 0 || state.spinning;
       elements.exportButton.disabled = (state.winners.length === 0 && state.absentees.length === 0) || state.spinning;
       elements.drawButton.textContent = getDrawButtonText();
-      elements.bigDrawButton.textContent = canDraw ? getBigDrawButtonText() : (state.participants.length === 0 ? "Load File to Begin" : "No Participants Remaining");
+      elements.bigDrawButton.textContent = canDraw ? getBigDrawButtonText() : (state.participants.length === 0 ? t("loadFileButton") : t("noRemainingButton"));
       elements.drawCountInput.value = state.drawCount;
       elements.drawCountInput.disabled = state.spinning;
       elements.drawCountMinus.disabled = state.spinning || state.drawCount <= MIN_DRAW_COUNT;
@@ -1777,7 +2306,7 @@
       if (state.winners.length === 0) {
         const empty = document.createElement("li");
         empty.className = "empty-history";
-        empty.textContent = "No winners yet.";
+        empty.textContent = t("noWinners");
         elements.historyList.appendChild(empty);
       } else {
         state.winners.slice().reverse().forEach((winner) => {
@@ -1794,10 +2323,10 @@
 
           item.append(order, name);
 
-          if (winner.name || winner.extra) {
+          if ((winner.name && winner.name !== getWinnerEnglishName(winner)) || winner.extra) {
             const extra = document.createElement("span");
             extra.className = "history-extra";
-            extra.textContent = [winner.name, winner.extra].filter(Boolean).join(" · ");
+            extra.textContent = [winner.name !== getWinnerEnglishName(winner) ? winner.name : "", winner.extra].filter(Boolean).join(" · ");
             item.appendChild(extra);
           }
 
@@ -1808,7 +2337,7 @@
       if (state.absentees.length === 0) {
         const empty = document.createElement("li");
         empty.className = "empty-history";
-        empty.textContent = "No absent winners.";
+        empty.textContent = t("noAbsentees");
         elements.absenteeList.appendChild(empty);
         return;
       }
@@ -1827,7 +2356,7 @@
 
         const extra = document.createElement("span");
         extra.className = "history-extra";
-        extra.textContent = [absentee.name, absentee.extra].filter(Boolean).join(" · ");
+        extra.textContent = [absentee.name !== getWinnerEnglishName(absentee) ? absentee.name : "", absentee.extra].filter(Boolean).join(" · ");
 
         item.append(order, name, extra);
         elements.absenteeList.appendChild(item);
@@ -1836,18 +2365,18 @@
 
     function getDrawButtonText() {
       if (state.pendingReplacementCount > 0) {
-        return `Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}`;
+        return t("drawReplacementButton", { count: state.pendingReplacementCount });
       }
 
-      return state.drawCount > 1 ? `Draw ${state.drawCount} Winners` : "Draw Winner";
+      return state.drawCount > 1 ? t("drawWinnersButton", { count: state.drawCount }) : t("drawWinnerButton");
     }
 
     function getBigDrawButtonText() {
       if (state.pendingReplacementCount > 0) {
-        return `Press Enter to Draw ${state.pendingReplacementCount} Replacement${state.pendingReplacementCount === 1 ? "" : "s"}`;
+        return t("bigDrawReplacementButton", { count: state.pendingReplacementCount });
       }
 
-      return state.drawCount > 1 ? `Press Enter to Draw ${state.drawCount} Winners` : "Press Enter or Click to Draw";
+      return state.drawCount > 1 ? t("bigDrawWinnersButton", { count: state.drawCount }) : t("bigDrawButton");
     }
 
     function setControlsDisabled(disabled) {
@@ -1862,6 +2391,9 @@
       elements.undoButton.disabled = disabled;
       elements.exportButton.disabled = disabled;
       elements.resetButton.disabled = disabled;
+      elements.languageButtons.forEach((button) => {
+        button.disabled = disabled;
+      });
     }
 
     function setStatus(message) {
@@ -1870,6 +2402,7 @@
 
     function saveState() {
       const payload = {
+        language: state.language,
         title: state.title,
         sourceName: state.sourceName,
         participants: state.participants,
@@ -1887,17 +2420,23 @@
     function restoreState() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) {
+        state.title = t("defaultTitle");
+        applyTranslations();
         render();
+        setStatus(t("statusLoadFile"));
         return;
       }
 
       try {
         const payload = JSON.parse(saved);
         if (!Array.isArray(payload.participants)) {
+          applyTranslations();
           render();
+          setStatus(t("statusLoadFile"));
           return;
         }
 
+        state.language = SUPPORTED_LANGUAGES.has(payload.language) ? payload.language : "ko";
         state.title = normalizeTitle(payload.title);
         state.sourceName = payload.sourceName || "";
         state.participants = payload.participants || [];
@@ -1908,32 +2447,39 @@
         state.currentBatch = Array.isArray(payload.currentBatch) ? payload.currentBatch : (state.current ? [state.current] : []);
         state.drawCount = normalizeDrawCount(payload.drawCount);
         state.pendingReplacementCount = Number.isInteger(payload.pendingReplacementCount) ? Math.max(0, payload.pendingReplacementCount) : 0;
+        applyTranslations();
         render();
 
         if (state.participants.length > 0) {
-          setStatus("Previous raffle state restored");
+          setStatus(t("statusRestoredState"));
+        } else {
+          setStatus(t("statusLoadFile"));
         }
       } catch (error) {
         console.warn("Saved raffle state could not be restored.", error);
+        state.language = "ko";
+        state.title = t("defaultTitle");
+        applyTranslations();
         render();
+        setStatus(t("statusLoadFile"));
       }
     }
 
     function normalizeTitle(title) {
       const cleanTitle = cleanCell(title);
-      return cleanTitle && cleanTitle !== "오늘의 추첨" ? cleanTitle : "Raffle Draw";
+      return isDefaultTitle(cleanTitle) ? t("defaultTitle") : cleanTitle;
     }
 
     function isEditingTarget(target) {
       const tagName = target.tagName;
-      return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target.isContentEditable;
+      return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || tagName === "BUTTON" || target.isContentEditable;
     }
 
     function setDrawCount(count) {
       state.drawCount = normalizeDrawCount(count);
       saveState();
       renderCountsAndHistory();
-      setStatus(state.drawCount === 1 ? "Single-winner draw mode" : `${state.drawCount}-winner draw mode`);
+      setStatus(state.drawCount === 1 ? t("statusSingleMode") : t("statusMultiMode", { count: state.drawCount }));
     }
 
     function normalizeDrawCount(count) {
@@ -1965,9 +2511,15 @@
     });
 
     elements.eventTitleInput.addEventListener("input", (event) => {
-      state.title = event.target.value.trim() || "Raffle Draw";
+      state.title = event.target.value.trim() || t("defaultTitle");
       elements.eventTitleDisplay.textContent = state.title;
       saveState();
+    });
+
+    elements.languageButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setLanguage(button.dataset.language);
+      });
     });
 
     elements.drawCountMinus.addEventListener("click", () => {
