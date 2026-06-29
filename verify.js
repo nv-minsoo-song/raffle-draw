@@ -312,6 +312,13 @@ assert(fullWidthJapaneseHeader.englishNameIndex === 3, "Japanese romaji-name hea
 
 api.state.language = "ja";
 assert(api.t("drawWinnersButton", { count: 3 }) === "3名を抽選", "Japanese dynamic draw labels should interpolate counts");
+assert(api.t("winnersPerDrawLabel") === "1回あたりの当選者数", "Japanese draw-count label should use natural event terminology");
+assert(api.t("winnerMeta", { order: 1 }) === "1人目の当選者", "Japanese winner order should avoid mixed English numbering");
+assert(api.t("statusAllDrawn") === "すべての参加者の抽選が完了しました", "Japanese completion status should not imply every participant won");
+assert(api.t("statusReplacementPending", { drawn: 1, remaining: 2 }) === "再抽選：1名完了／残り2名", "Japanese replacement status should read naturally");
+assert(api.t("absentLabel") === "不在", "Japanese live-raffle no-show terminology should use 不在");
+assert(api.t("fileLoaded") === "読み込み完了", "Japanese file status should clearly indicate loading completed");
+assert(Object.values(api.TRANSLATIONS.ja).every((message) => !message.includes("欠席")), "Japanese live-raffle copy should use 不在 consistently instead of 欠席");
 api.state.language = "en";
 assert(api.t("drawWinnersButton", { count: 3 }) === "Draw 3 Winners", "English dynamic draw labels should interpolate counts");
 assert(api.t("statusParticipantsLoaded", { count: 1 }) === "Participant list loaded · Total: 1", "English single-participant status should avoid plural grammar");
