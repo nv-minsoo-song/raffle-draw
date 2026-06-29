@@ -3,12 +3,28 @@
 An offline event-screen raffle app for drawing 1 to 50 winners at a time from a
 CSV or XLSX participant list.
 
-The interface can switch between Korean (`KOR 한국어`) and Japanese
-(`JPN 日本語`). Korean and Japanese participant files can be used without
-changing the draw workflow.
+The interface can switch between English (`ENG English`), Korean
+(`KOR 한국어`), and Japanese (`JPN 日本語`). English, Korean, and Japanese
+participant files can be used without changing the draw workflow.
 
 Participant CSV/XLSX files are intentionally ignored by Git. The verification
 script generates its own test data and does not require a real participant list.
+
+## Screenshots
+
+All screenshots use the same sample participant at a 1600 × 900 viewport.
+
+### English
+
+![English raffle interface showing a sample winner and draw controls](docs/screenshots/raffle-draw-en.png)
+
+### 한국어
+
+![한국어 추첨 화면에 예시 당첨자와 추첨 컨트롤이 표시된 모습](docs/screenshots/raffle-draw-ko.png)
+
+### 日本語
+
+![日本語の抽選画面にサンプル当選者と抽選操作が表示された様子](docs/screenshots/raffle-draw-ja.png)
 
 ## How to Run
 
@@ -95,7 +111,7 @@ Run:
 node verify.js
 ```
 
-Coverage includes Korean and Japanese headers, Hangul and Kana romanization,
-explicit Romanized Name priority, Shift-JIS and EUC-KR decoding, XLSX parsing,
-1-to-50-person draws, uniqueness, absent/replacement flows, undo/restore,
-quoted CSV values, and result export.
+Coverage includes all three interface languages, English/Korean/Japanese
+headers, Hangul and Kana romanization, explicit Romanized Name priority,
+Shift-JIS and EUC-KR decoding, XLSX parsing, 1-to-50-person draws, uniqueness,
+absent/replacement flows, undo/restore, quoted CSV values, and result export.

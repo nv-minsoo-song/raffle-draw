@@ -57,6 +57,7 @@ assert(scriptMatch, "Could not find inline script in index.html");
 
 const localStorageValues = new Map();
 const languageButtons = [
+  makeElement({ dataset: { language: "en" }, classes: ["language-button"] }),
   makeElement({ dataset: { language: "ko" }, classes: ["language-button", "is-active"] }),
   makeElement({ dataset: { language: "ja" }, classes: ["language-button"] })
 ];
@@ -148,23 +149,63 @@ globalThis.__raffleTest = {
 
 const api = context.__raffleTest;
 const usedTranslationKeys = [...scriptMatch[1].matchAll(/\bt\("([^"]+)"/g)].map((match) => match[1]);
-const koreanTranslationKeys = Object.keys(api.TRANSLATIONS.ko).sort();
-const japaneseTranslationKeys = Object.keys(api.TRANSLATIONS.ja).sort();
-assert(koreanTranslationKeys.join("\n") === japaneseTranslationKeys.join("\n"), "Korean and Japanese translation dictionaries should contain the same keys");
-usedTranslationKeys.forEach((key) => {
-  assert(key in api.TRANSLATIONS.ko, `Korean translation should include ${key}`);
-  assert(key in api.TRANSLATIONS.ja, `Japanese translation should include ${key}`);
+const markupTranslationKeys = [...html.matchAll(/data-i18n(?:-aria)?="([^"]+)"/g)].map((match) => match[1]);
+const referenceTranslationKeys = Object.keys(api.TRANSLATIONS.ko).sort();
+const getPlaceholders = (text) => [...String(text).matchAll(/\{([^}]+)\}/g)].map((match) => match[1]).sort().join(",");
+Object.entries(api.TRANSLATIONS).forEach(([language, messages]) => {
+  assert(Object.keys(messages).sort().join("\n") === referenceTranslationKeys.join("\n"), `${language} translation dictionary should contain the same keys as Korean`);
+  [...new Set([...usedTranslationKeys, ...markupTranslationKeys])].forEach((key) => {
+    assert(key in messages, `${language} translation should include ${key}`);
+  });
+  referenceTranslationKeys.forEach((key) => {
+    assert(getPlaceholders(messages[key]) === getPlaceholders(api.TRANSLATIONS.ko[key]), `${language}.${key} should use the same placeholders as Korean`);
+  });
 });
 
-languageButtons[1].click();
+const englishButton = languageButtons.find((button) => button.dataset.language === "en");
+const koreanButton = languageButtons.find((button) => button.dataset.language === "ko");
+const japaneseButton = languageButtons.find((button) => button.dataset.language === "ja");
+
+englishButton.click();
+assert(api.state.language === "en", "English language button should switch state language");
+assert(api.state.title === "Raffle Draw", "Switching a default title to English should localize it");
+assert(context.document.documentElement.lang === "en", "English switch should update the document lang");
+assert(translatedTextNode.textContent === "Winner History", "English switch should translate static text");
+assert(translatedAriaNode.getAttribute("aria-label") === "Raffle setup", "English switch should translate ARIA labels");
+assert(englishButton.classList.contains("is-active"), "English language button should become active");
+assert(englishButton.getAttribute("aria-pressed") === "true", "English language button should expose pressed state");
+assert(JSON.parse(localStorageValues.get("raffle-draw-state-v1")).language === "en", "English selection should persist to localStorage");
+
+japaneseButton.click();
 assert(api.state.language === "ja", "Japanese language button should switch state language");
 assert(api.state.title === "抽選会", "Switching a default title to Japanese should localize it");
 assert(context.document.documentElement.lang === "ja", "Japanese switch should update the document lang");
 assert(translatedTextNode.textContent === "当選履歴", "Japanese switch should translate static text");
 assert(translatedAriaNode.getAttribute("aria-label") === "抽選設定", "Japanese switch should translate ARIA labels");
-assert(languageButtons[1].classList.contains("is-active"), "Japanese language button should become active");
-assert(languageButtons[1].getAttribute("aria-pressed") === "true", "Japanese language button should expose pressed state");
+assert(japaneseButton.classList.contains("is-active"), "Japanese language button should become active");
+assert(japaneseButton.getAttribute("aria-pressed") === "true", "Japanese language button should expose pressed state");
 assert(JSON.parse(localStorageValues.get("raffle-draw-state-v1")).language === "ja", "Selected language should persist to localStorage");
+
+localStorageValues.set("raffle-draw-state-v1", JSON.stringify({
+  language: "en",
+  title: "오늘의 추첨",
+  sourceName: "",
+  participants: [],
+  remaining: [],
+  winners: [],
+  absentees: [],
+  currentBatch: [],
+  current: null,
+  drawCount: 1,
+  pendingReplacementCount: 0
+}));
+api.restoreState();
+assert(api.state.language === "en", "Saved English language should be restored");
+assert(api.state.title === "Raffle Draw", "A translated default title should migrate to the English default");
+api.state.title = "Global Partner Raffle";
+koreanButton.click();
+englishButton.click();
+assert(api.state.title === "Global Partner Raffle", "Custom event titles should survive language switches");
 
 localStorageValues.set("raffle-draw-state-v1", JSON.stringify({
   title: "Raffle Draw",
@@ -204,6 +245,13 @@ assert(api.romanizeParticipantName("山田太郎", "ヤマダ タロウ") === "Y
 const nonHangulRows = api.parseCsv("No,Name\n42,Kai Cheung Ng\n");
 const nonHangulParticipants = api.normalizeParticipants(nonHangulRows);
 assert(nonHangulParticipants[0].englishName === "Kai Cheung Ng", "Non-Hangul names should stay readable as-is");
+
+const englishRows = api.parseCsv("No,Full Name,Department\n7,Alex Morgan,Global Programs\n");
+const englishParticipants = api.normalizeParticipants(englishRows);
+assert(englishParticipants.length === 1, "English participant headers should parse");
+assert(englishParticipants[0].number === "7", "English No header should provide the participant number");
+assert(englishParticipants[0].name === "Alex Morgan", "English Full Name header should provide the participant name");
+assert(englishParticipants[0].extra === "Global Programs", "English Department should remain extra info");
 
 const snuHeader = ["IDX", "등록 카테고리", "카테고리 코드", "이름", "단과대학(원) / 소속", "학과 및 전공 / 부서", "직급명(국문)", "행운권 추첨번호"];
 const snuHeaderInfo = api.getHeaderInfo(snuHeader);
@@ -264,6 +312,10 @@ assert(fullWidthJapaneseHeader.englishNameIndex === 3, "Japanese romaji-name hea
 
 api.state.language = "ja";
 assert(api.t("drawWinnersButton", { count: 3 }) === "3名を抽選", "Japanese dynamic draw labels should interpolate counts");
+api.state.language = "en";
+assert(api.t("drawWinnersButton", { count: 3 }) === "Draw 3 Winners", "English dynamic draw labels should interpolate counts");
+assert(api.t("statusParticipantsLoaded", { count: 1 }) === "Participant list loaded · Total: 1", "English single-participant status should avoid plural grammar");
+assert(api.t("drawReplacementButton", { count: 1 }) === "Replacement Draw (1)", "English single replacement label should avoid plural grammar");
 api.state.language = "ko";
 
 const csvLine = api.toCsvLine(["Winner", "Yang Min-gyu", "Team, A"]);
@@ -452,6 +504,16 @@ async function verifyLegacyCsvEncodings() {
       language: "ko",
       base64: "ufjIoyzAzLinDQoxLLHouc689g0K",
       expected: "번호,이름"
+    },
+    {
+      language: "en",
+      base64: "koqRSZTUjYYsjoGWvCyDdIOKg0uDaSyPipGuDQoxMDEsjlKTY5G+mFksg4SDfYNfIINeg42DRSyJY4vGDQo=",
+      expected: "抽選番号,氏名,フリガナ,所属"
+    },
+    {
+      language: "en",
+      base64: "ufjIoyzAzLinDQoxLLHouc689g0K",
+      expected: "번호,이름"
     }
   ];
 
@@ -486,7 +548,7 @@ Promise.all([verifyLocalXlsx(), verifyLegacyCsvEncodings()])
       console.log("Local XLSX parsed: skipped because no .xlsx file is present");
     }
     console.log(`First display name: ${sampleParticipants[0].englishName} / ${sampleParticipants[0].name}`);
-    console.log("Use cases passed: Korean and Japanese romanization, Japanese headers, Shift-JIS and EUC-KR CSV decoding, manual romanized-name override, XLSX parsing, raffle-number header preference, adjustable draw count, sequential and simultaneous draws, absent replacement flows, restore absent, quoted CSV, export statuses");
+    console.log("Use cases passed: English/Korean/Japanese localization, Korean and Japanese romanization, multilingual headers, Shift-JIS and EUC-KR CSV decoding, manual romanized-name override, XLSX parsing, adjustable draw count, sequential and simultaneous draws, absent replacement flows, restore absent, quoted CSV, export statuses");
   })
   .catch((error) => {
     console.error(error);

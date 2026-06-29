@@ -101,7 +101,7 @@
 
     .language-switch {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
       border: 1px solid var(--line);
       border-radius: 9px;
@@ -110,13 +110,18 @@
     }
 
     .language-button {
+      min-width: 0;
       min-height: 38px;
       border-radius: 6px;
       background: transparent;
       color: var(--muted);
-      font-size: 13px;
+      padding: 0 4px;
+      font-size: 12px;
       font-weight: 850;
+      overflow: hidden;
+      text-overflow: ellipsis;
       transition: background 160ms ease, color 160ms ease;
+      white-space: nowrap;
     }
 
     .language-button:hover {
@@ -126,6 +131,12 @@
     .language-button.is-active {
       background: var(--accent);
       color: #171511;
+    }
+
+    @media (min-width: 1081px) and (max-width: 1240px) {
+      .language-name {
+        display: none;
+      }
     }
 
     .field-label {
@@ -637,8 +648,9 @@
 
       <span class="field-label" data-i18n="languageLabel">언어</span>
       <div class="language-switch" role="group" aria-label="언어 선택" data-i18n-aria="languageAria">
-        <button class="language-button is-active" type="button" data-language="ko" aria-pressed="true">KOR 한국어</button>
-        <button class="language-button" type="button" data-language="ja" aria-pressed="false">JPN 日本語</button>
+        <button class="language-button" type="button" data-language="en" aria-label="English" aria-pressed="false">ENG<span class="language-name"> English</span></button>
+        <button class="language-button is-active" type="button" data-language="ko" aria-label="한국어" aria-pressed="true">KOR<span class="language-name"> 한국어</span></button>
+        <button class="language-button" type="button" data-language="ja" aria-label="日本語" aria-pressed="false">JPN<span class="language-name"> 日本語</span></button>
       </div>
 
       <label class="field-label" for="eventTitleInput" data-i18n="screenTitleLabel">화면 제목</label>
@@ -735,13 +747,105 @@
     const DRAW_DURATION_MS = 500;
     const MIN_DRAW_COUNT = 1;
     const MAX_DRAW_COUNT = 50;
-    const SUPPORTED_LANGUAGES = new Set(["ko", "ja"]);
+    const SUPPORTED_LANGUAGES = new Set(["en", "ko", "ja"]);
     const LANGUAGE_LOCALES = {
+      en: "en-US",
       ko: "ko-KR",
       ja: "ja-JP"
     };
 
     const TRANSLATIONS = {
+      en: {
+        documentTitle: "Raffle Draw",
+        defaultTitle: "Raffle Draw",
+        brandSubtitle: "Load a CSV or XLSX participant list, then press Enter to draw.",
+        languageLabel: "Language",
+        languageAria: "Select language",
+        setupAria: "Raffle setup",
+        screenTitleLabel: "Screen Title",
+        participantFileLabel: "Participant File",
+        selectFile: "Select CSV or XLSX File",
+        fileExample: "Example: 1,Alex Morgan",
+        fileHelp: "Use a list containing participant numbers and names.",
+        totalLabel: "Total",
+        remainingLabel: "Remaining",
+        winnersLabel: "Winners",
+        absentLabel: "Absent",
+        fileLabel: "File",
+        winnersPerDrawLabel: "Winners per Draw",
+        winnersPerDrawAria: "Winners per draw",
+        decreaseDrawCountAria: "Decrease winners per draw",
+        increaseDrawCountAria: "Increase winners per draw",
+        markAbsentButton: "Mark Current Winner Absent",
+        restoreAbsentButton: "Restore Last Absent",
+        fullscreenButton: "Full Screen",
+        undoButton: "Undo Last Winner",
+        exportButton: "Save Results CSV",
+        resetButton: "Restart Draw",
+        hint: "After loading the list, press Enter or Space. Add an English Name or Romaji column for verified spelling; Hangul and Kana are romanized automatically.",
+        stageAria: "Raffle stage",
+        historyAria: "Winner history",
+        winnerHistoryTitle: "Winner History",
+        absentHistoryTitle: "Absent",
+        statusLoadFile: "Load a participant list to begin",
+        statusReadingFile: "Reading file",
+        statusNoNames: "No participant names found",
+        statusParticipantsLoaded: "Participant list loaded · Total: {count}",
+        statusCouldNotLoad: "Could not load file",
+        statusLoadFirst: "Load a participant list first",
+        statusAllDrawn: "All participants have been drawn",
+        statusDrawing: "Drawing",
+        previewDrawing: "Drawing…",
+        statusReplacementPending: "Replacement draw: {drawn} complete · {remaining} remaining",
+        statusWinnersConfirmed: "Winners confirmed: {count}",
+        statusWinnerConfirmed: "Winner confirmed",
+        statusLastWinnerUndone: "Last winner undone",
+        statusNoActiveWinner: "No active winner to mark absent",
+        statusMarkedAbsent: "{name} marked absent · replacements needed: {count}",
+        statusRestoredAbsent: "{name} restored to the draw pool",
+        confirmReset: "Clear the current winner history and restart this draw?",
+        statusRestarted: "Draw restarted",
+        statusNoHistory: "No draw history to save",
+        statusResultsSaved: "Results CSV saved",
+        statusRestoredState: "Previous raffle state restored",
+        statusLanguageChanged: "Switched to English",
+        statusSingleMode: "Single-winner draw mode",
+        statusMultiMode: "{count}-winner draw mode",
+        errorLegacyXls: "Legacy .xls files are not supported. Save the list as .xlsx or .csv.",
+        errorNoWorksheet: "No worksheet found in the XLSX file.",
+        errorInvalidXlsx: "This is not a valid XLSX file.",
+        errorUnsupportedCompression: "This XLSX compression method is not supported.",
+        errorNoDecompressor: "This browser cannot decompress XLSX files. Use Chrome or Edge, or upload a CSV file.",
+        errorWinnerIndex: "The winner index is outside the remaining participant pool.",
+        cardReady: "Ready",
+        cardNamePlaceholder: "Participant name will appear here",
+        cardFormat: "Format: number, name, optional Romanized Name",
+        cardReadyNumber: "Ready",
+        cardEnter: "Enter",
+        cardPressEnter: "Press Enter to draw",
+        cardPronunciation: "The Romanized Name is shown prominently.",
+        cardComplete: "Complete",
+        cardAllDone: "All Done",
+        cardNoRemaining: "No participants remaining",
+        cardCompleteSummary: "Winners: {winners} · Absent: {absent}",
+        numberPlaceholder: "No.",
+        numberPrefix: "No. {number}",
+        winnerMeta: "Winner #{order}",
+        currentWinnersMeta: "Current Winners",
+        winnersMeta: "{count} Winners",
+        absentCardButton: "Absent",
+        fileLoaded: "Loaded",
+        noWinners: "No winners yet.",
+        noAbsentees: "No absent winners.",
+        drawWinnerButton: "Draw Winner",
+        drawWinnersButton: "Draw {count} Winners",
+        drawReplacementButton: "Replacement Draw ({count})",
+        bigDrawButton: "Press Enter or Click to Draw",
+        bigDrawWinnersButton: "Press Enter to Draw {count} Winners",
+        bigDrawReplacementButton: "Press Enter for Replacement Draw ({count})",
+        loadFileButton: "Load File to Begin",
+        noRemainingButton: "No Participants Remaining"
+      },
       ko: {
         documentTitle: "행운권 추첨",
         defaultTitle: "오늘의 추첨",
@@ -842,7 +946,7 @@
         setupAria: "抽選設定",
         screenTitleLabel: "画面タイトル",
         participantFileLabel: "参加者名簿",
-        selectFile: "CSVまたはXLSXファイルを選択",
+        selectFile: "CSV / XLSXファイルを選択",
         fileExample: "例：1,山田太郎",
         fileHelp: "番号と氏名を含む名簿をご用意ください。",
         totalLabel: "合計",
@@ -1539,7 +1643,7 @@
       try {
         return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
       } catch (utf8Error) {
-        const fallbackEncodings = state.language === "ja" ? ["shift_jis", "euc-kr"] : ["euc-kr", "shift_jis"];
+        const fallbackEncodings = state.language === "ko" ? ["euc-kr", "shift_jis"] : ["shift_jis", "euc-kr"];
         const candidates = [];
 
         for (const encoding of fallbackEncodings) {
@@ -1571,7 +1675,7 @@
 
       if (state.language === "ja") {
         score += japaneseHeaders * 20 + kanaCount * 0.25 + (encoding === "shift_jis" ? 1 : 0);
-      } else {
+      } else if (state.language === "ko") {
         score += koreanHeaders * 20 + hangulCount * 0.25 + (encoding === "euc-kr" ? 1 : 0);
       }
 
